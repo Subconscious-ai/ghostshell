@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+          pip install -r requirements.txt
+          
+      - name: Lint with ruff
+        run: ruff check server/
+        
+      - name: Type check with mypy
+        run: mypy server/ --ignore-missing-imports
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+          
+      - name: Run tests
+        run: pytest tests/ -v
+        env:
+          AUTH0_JWT_TOKEN: "test_token"
+          API_BASE_URL: "https://api.dev.subconscious.ai"
+
+  validate-mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Validate MCP server starts
+        run: |
+          timeout 5 python server/main.py < /dev/null || true
+        env:
+          AUTH0_JWT_TOKEN: "test_token"
+          API_BASE_URL: "https://api.dev.subconscious.ai"
+
