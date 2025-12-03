@@ -1,6 +1,7 @@
 """MCP tools for analytics and insights."""
 
 from typing import Any, Dict
+
 from mcp.types import Tool as MCPTool
 
 from ..utils.api_client import APIClient
@@ -37,11 +38,11 @@ async def handle_get_amce_data(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_amce_data tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         # Use v3 API for processed AMCE data
         response = await client.get(f"/api/v3/runs/{run_id}/processed/amce")
-        
+
         return {
             "success": True,
             "data": response,
@@ -85,29 +86,29 @@ async def handle_get_causal_insights(arguments: Dict[str, Any]) -> Dict[str, Any
     """Handle get_causal_insights tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         # Use v3 API for causal sentences (returns a list of sentence objects)
         response = await client.post(f"/api/v3/runs/{run_id}/generate/causal-sentences", json={})
-        
+
         # Also get basic run info for R² and confidence
         run_info = await client.get(f"/api/v1/runs/{run_id}")
         configs = run_info.get("run_details", {}).get("configs", {})
         exp_design = configs.get("experiment_design", {})
-        
+
         # Extract sentences from the list response
         causal_statements = []
         if isinstance(response, list):
             causal_statements = [item.get("sentence", str(item)) if isinstance(item, dict) else str(item) for item in response]
         elif isinstance(response, dict):
             causal_statements = response.get("causal_sentences") or response.get("sentences") or []
-        
+
         insights = {
             "causal_statements": causal_statements,
             "r_squared": exp_design.get("r_squared"),
             "confidence_level": exp_design.get("confidence_level"),
         }
-        
+
         return {
             "success": True,
             "data": insights,

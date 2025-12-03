@@ -1,10 +1,10 @@
 """MCP tools for ideation workflow - causality check, moderation, and attribute/level generation."""
 
 from typing import Any, Dict
+
 from mcp.types import Tool as MCPTool
 
 from ..utils.api_client import APIClient
-
 
 # =============================================================================
 # STEP 1: Check Causality
@@ -42,7 +42,7 @@ def check_causality_tool() -> MCPTool:
 async def handle_check_causality(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle check_causality tool execution."""
     client = APIClient()
-    
+
     # Map simple model names to actual enum values
     model_map = {
         "sonnet": "databricks-claude-sonnet-4",
@@ -50,13 +50,13 @@ async def handle_check_causality(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "haiku": "databricks-claude-sonnet-4"  # fallback
     }
     llm_model = model_map.get(arguments.get("llm_model", "sonnet"), "databricks-claude-sonnet-4")
-    
+
     try:
         response = await client.post("/api/v1/copilot/check-causality", json={
             "why_prompt": arguments["why_prompt"],
             "llm_model": llm_model
         })
-        
+
         is_causal = response.get("is_causal", False)
         return {
             "success": True,
@@ -100,16 +100,16 @@ def check_moderation_tool() -> MCPTool:
 async def handle_check_moderation(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle check_moderation tool execution."""
     client = APIClient()
-    
+
     try:
         # URL encode the why_prompt for query string
         import urllib.parse
         encoded_prompt = urllib.parse.quote(arguments['why_prompt'])
         response = await client.post(
-            f"/api/v1/copilot/check-moderation?why_prompt={encoded_prompt}", 
+            f"/api/v1/copilot/check-moderation?why_prompt={encoded_prompt}",
             json={}
         )
-        
+
         flagged = response.get("flagged", False)
         return {
             "success": True,
@@ -185,7 +185,7 @@ def generate_attributes_levels_tool() -> MCPTool:
 async def handle_generate_attributes_levels(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle generate_attributes_levels tool execution."""
     client = APIClient()
-    
+
     # Map simple model names to actual enum values
     model_map = {
         "sonnet": "databricks-claude-sonnet-4",
@@ -193,7 +193,7 @@ async def handle_generate_attributes_levels(arguments: Dict[str, Any]) -> Dict[s
         "haiku": "databricks-claude-sonnet-4"
     }
     llm_model = model_map.get(arguments.get("llm_model", "sonnet"), "databricks-claude-sonnet-4")
-    
+
     try:
         # Note: attributes-levels endpoint is at root of v1, no prefix
         response = await client.post("/api/v1/attributes-levels-claude", json={
@@ -204,7 +204,7 @@ async def handle_generate_attributes_levels(arguments: Dict[str, Any]) -> Dict[s
             "level_count": arguments.get("level_count", 4),
             "llm_model": llm_model
         })
-        
+
         # Response is a list of attributes directly
         attrs = response if isinstance(response, list) else response.get("attributes_levels", [])
         return {

@@ -1,6 +1,7 @@
 """MCP tools for persona management."""
 
 from typing import Any, Dict
+
 from mcp.types import Tool as MCPTool
 
 from ..utils.api_client import APIClient
@@ -37,7 +38,7 @@ def generate_personas_tool() -> MCPTool:
 async def handle_generate_personas(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle generate_personas tool execution."""
     client = APIClient()
-    
+
     try:
         params = {
             "levels_per_trait": arguments.get("levels_per_trait", 3),
@@ -82,7 +83,7 @@ async def handle_get_experiment_personas(arguments: Dict[str, Any]) -> Dict[str,
     """Handle get_experiment_personas tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         response = await client.get(f"/api/v1/experiments/{run_id}/personas")
         return {

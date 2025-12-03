@@ -1,6 +1,7 @@
 """MCP tools for population management."""
 
 from typing import Any, Dict
+
 from mcp.types import Tool as MCPTool
 
 from ..utils.api_client import APIClient
@@ -47,7 +48,7 @@ def validate_population_tool() -> MCPTool:
 async def handle_validate_population(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle validate_population tool execution."""
     client = APIClient()
-    
+
     try:
         response = await client.post("/api/v1/populations/validate", json=arguments)
         return {
@@ -98,7 +99,7 @@ def get_population_stats_tool() -> MCPTool:
 async def handle_get_population_stats(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_population_stats tool execution."""
     client = APIClient()
-    
+
     try:
         # This would need to be implemented based on actual API endpoint
         # For now, using validate endpoint as proxy

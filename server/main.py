@@ -3,7 +3,7 @@
 
 Experiment Workflow:
 1. check_causality - Validate research question is causal
-2. check_moderation - Ensure content policy compliance  
+2. check_moderation - Ensure content policy compliance
 3. generate_attributes_levels - Create experiment attributes/levels
 4. validate_population (optional) - Check target population size
 5. create_experiment - Run the experiment
@@ -20,62 +20,61 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 from server.config import config
 from server.tools import (
     # Ideation (Step 1-3)
     check_causality_tool,
     check_moderation_tool,
-    generate_attributes_levels_tool,
-    # Population
-    validate_population_tool,
-    get_population_stats_tool,
     # Experiments
     create_experiment_tool,
-    get_experiment_status_tool,
-    get_experiment_results_tool,
-    list_experiments_tool,
-    # Runs
-    get_run_details_tool,
-    get_run_artifacts_tool,
-    update_run_config_tool,
+    generate_attributes_levels_tool,
     # Personas
     generate_personas_tool,
-    get_experiment_personas_tool,
     # Analytics
     get_amce_data_tool,
     get_causal_insights_tool,
+    get_experiment_personas_tool,
+    get_experiment_results_tool,
+    get_experiment_status_tool,
+    get_population_stats_tool,
+    get_run_artifacts_tool,
+    # Runs
+    get_run_details_tool,
+    list_experiments_tool,
+    update_run_config_tool,
+    # Population
+    validate_population_tool,
+)
+from server.tools.analytics import (
+    handle_get_amce_data,
+    handle_get_causal_insights,
+)
+from server.tools.experiments import (
+    handle_create_experiment,
+    handle_get_experiment_results,
+    handle_get_experiment_status,
+    handle_list_experiments,
 )
 from server.tools.ideation import (
     handle_check_causality,
     handle_check_moderation,
     handle_generate_attributes_levels,
 )
-from server.tools.experiments import (
-    handle_create_experiment,
-    handle_get_experiment_status,
-    handle_get_experiment_results,
-    handle_list_experiments,
-)
-from server.tools.runs import (
-    handle_get_run_details,
-    handle_get_run_artifacts,
-    handle_update_run_config,
-)
 from server.tools.personas import (
     handle_generate_personas,
     handle_get_experiment_personas,
 )
 from server.tools.population import (
-    handle_validate_population,
     handle_get_population_stats,
+    handle_validate_population,
 )
-from server.tools.analytics import (
-    handle_get_amce_data,
-    handle_get_causal_insights,
+from server.tools.runs import (
+    handle_get_run_artifacts,
+    handle_get_run_details,
+    handle_update_run_config,
 )
-
 
 # Create MCP server instance
 server = Server(config.server_name)
@@ -137,14 +136,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         "get_amce_data": handle_get_amce_data,
         "get_causal_insights": handle_get_causal_insights,
     }
-    
+
     handler = handlers.get(name)
     if not handler:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
-    
+
     try:
         result = await handler(arguments)
-        
+
         if result.get("success"):
             text = f"{result.get('message', 'Success')}\n\n{_format_result(result.get('data', {}))}"
             return [TextContent(type="text", text=text)]

@@ -1,7 +1,7 @@
 """Configuration management for MCP server."""
 
 import os
-from typing import Optional
+
 from dotenv import load_dotenv
 
 # Load .env file
@@ -10,7 +10,7 @@ load_dotenv()
 
 class MCPConfig:
     """MCP server configuration."""
-    
+
     def __init__(self):
         # Auth0 Configuration
         self.auth0_domain = os.getenv("AUTH0_DOMAIN", "")
@@ -20,14 +20,14 @@ class MCPConfig:
         self.auth0_client_secret = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_SECRET") or os.getenv("AUTH0_CLIENT_SECRET", "")
         # Direct JWT token (optional)
         self.auth0_jwt_token = os.getenv("AUTH0_JWT_TOKEN")
-        
+
         # API Configuration
         self.api_base_url = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
-        
+
         # Server Configuration
         self.server_name = "subconscious-ai"
         self.server_version = "1.0.0"
-        
+
         # Timeout Configuration
         self.request_timeout = 300
         self.max_retries = 3

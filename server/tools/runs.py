@@ -1,6 +1,7 @@
 """MCP tools for run management."""
 
 from typing import Any, Dict
+
 from mcp.types import Tool as MCPTool
 
 from ..utils.api_client import APIClient
@@ -31,7 +32,7 @@ async def handle_get_run_details(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_run_details tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         response = await client.get(f"/api/v1/runs/{run_id}")
         return {
@@ -78,15 +79,15 @@ async def handle_get_run_artifacts(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_run_artifacts tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         # Use v3 API for artifacts
         response = await client.get(f"/api/v3/runs/{run_id}/artifacts")
-        
+
         # Also include artifacts from run details
         run_details = await client.get(f"/api/v1/runs/{run_id}")
         artifacts_list = run_details.get("run_details", {}).get("configs", {}).get("artifacts", [])
-        
+
         return {
             "success": True,
             "data": {
@@ -134,7 +135,7 @@ async def handle_update_run_config(arguments: Dict[str, Any]) -> Dict[str, Any]:
     client = APIClient()
     run_id = arguments["run_id"]
     config_updates = arguments["config_updates"]
-    
+
     try:
         response = await client.put(
             f"/api/v1/runs/{run_id}/config",

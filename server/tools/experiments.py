@@ -1,6 +1,7 @@
 """MCP tools for experiment management."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
+
 from mcp.types import Tool as MCPTool
 
 from ..utils.api_client import APIClient
@@ -71,7 +72,7 @@ def create_experiment_tool() -> MCPTool:
 async def handle_create_experiment(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle create_experiment tool execution."""
     client = APIClient()
-    
+
     # Map simple model names to actual enum values
     model_map = {
         "sonnet": "databricks-claude-sonnet-4",
@@ -79,7 +80,7 @@ async def handle_create_experiment(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "haiku": "databricks-claude-sonnet-4"
     }
     llm_model = model_map.get(arguments.get("expr_llm_model", "sonnet"), "databricks-claude-sonnet-4")
-    
+
     # Default target population for US-based experiments
     # Note: Don't include 'state' in target_population - it expects single enum, not list
     # The backend will use all US states by default
@@ -91,13 +92,13 @@ async def handle_create_experiment(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "household_income": [0, 300000],
         "number_of_children": ["0", "1", "2", "3", "4+"]
     }
-    
+
     # Build experiment payload with all required fields
     # Using full country name as the UI does
     country = arguments.get("country", "United States")
     if country == "United States":
         country = "United States of America (USA)"
-    
+
     payload = {
         "why_prompt": arguments["why_prompt"],
         "country": country,
@@ -115,10 +116,10 @@ async def handle_create_experiment(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "binary_choice": False,
         "match_population_distribution": False
     }
-    
+
     if arguments.get("state"):
         payload["state"] = arguments["state"]
-    
+
     if arguments.get("pre_cooked_attributes_and_levels_lookup"):
         # Transform to backend expected format: [[attr_name, [level1, level2, ...]], ...]
         # Input can be:
@@ -139,12 +140,12 @@ async def handle_create_experiment(arguments: Dict[str, Any]) -> Dict[str, Any]:
                     # Flat format: [attr_name, level1, level2, ...] -> [attr_name, [levels...]]
                     formatted_attrs.append([item[0], item[1:]])
         payload["pre_cooked_attributes_and_levels_lookup"] = formatted_attrs
-    
+
     try:
         response = await client.post("/api/v1/experiments", json=payload)
         run_id = response.get("wandb_run_id", "")
         run_name = response.get("wandb_run_name", "")
-        
+
         return {
             "success": True,
             "data": response,
@@ -183,7 +184,7 @@ async def handle_get_experiment_status(arguments: Dict[str, Any]) -> Dict[str, A
     """Handle get_experiment_status tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         response = await client.get(f"/api/v1/runs/{run_id}")
         state = response.get("state", "unknown")
@@ -225,7 +226,7 @@ async def handle_get_experiment_results(arguments: Dict[str, Any]) -> Dict[str, 
     """Handle get_experiment_results tool execution."""
     client = APIClient()
     run_id = arguments["run_id"]
-    
+
     try:
         response = await client.get(f"/api/v1/runs/{run_id}")
         return {
@@ -267,14 +268,14 @@ def list_experiments_tool() -> MCPTool:
 async def handle_list_experiments(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle list_experiments tool execution."""
     client = APIClient()
-    
+
     try:
         response = await client.get("/api/v1/runs/all")
-        
+
         experiments = response if isinstance(response, list) else []
         limit = arguments.get("limit", 20)
         experiments = experiments[:limit]
-        
+
         return {
             "success": True,
             "data": experiments,
