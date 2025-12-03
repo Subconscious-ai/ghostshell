@@ -272,7 +272,7 @@ async def handle_list_experiments(arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
         response = await client.get("/api/v1/runs/all")
 
-        experiments = response if isinstance(response, list) else []
+        experiments: list[Dict[str, Any]] = response if isinstance(response, list) else []
         limit = arguments.get("limit", 20)
         experiments = experiments[:limit]
 

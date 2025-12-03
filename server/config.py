@@ -11,13 +11,15 @@ load_dotenv()
 class MCPConfig:
     """MCP server configuration."""
 
+    auth0_jwt_token: str | None
+
     def __init__(self):
         # Auth0 Configuration
-        self.auth0_domain = os.getenv("AUTH0_DOMAIN", "")
-        self.auth0_audience = os.getenv("AUTH0_AUDIENCE", "")
+        self.auth0_domain: str = os.getenv("AUTH0_DOMAIN", "")
+        self.auth0_audience: str = os.getenv("AUTH0_AUDIENCE", "")
         # Try M2M client credentials first, then fall back to regular
-        self.auth0_client_id = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_ID") or os.getenv("AUTH0_CLIENT_ID", "")
-        self.auth0_client_secret = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_SECRET") or os.getenv("AUTH0_CLIENT_SECRET", "")
+        self.auth0_client_id: str = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_ID") or os.getenv("AUTH0_CLIENT_ID", "")
+        self.auth0_client_secret: str = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_SECRET") or os.getenv("AUTH0_CLIENT_SECRET", "")
         # Direct JWT token (optional)
         self.auth0_jwt_token = os.getenv("AUTH0_JWT_TOKEN")
 
@@ -40,8 +42,9 @@ config = MCPConfig()
 
 def get_auth_token() -> str:
     """Get Auth0 JWT token from environment."""
-    if not config.auth0_jwt_token:
+    token: str | None = config.auth0_jwt_token
+    if token is None:
         raise ValueError(
             "AUTH0_JWT_TOKEN required. Get your token from the browser after logging into holodeck."
         )
-    return config.auth0_jwt_token
+    return token

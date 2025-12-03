@@ -97,7 +97,7 @@ async def handle_get_causal_insights(arguments: Dict[str, Any]) -> Dict[str, Any
         exp_design = configs.get("experiment_design", {})
 
         # Extract sentences from the list response
-        causal_statements = []
+        causal_statements: list[str] = []
         if isinstance(response, list):
             causal_statements = [item.get("sentence", str(item)) if isinstance(item, dict) else str(item) for item in response]
         elif isinstance(response, dict):

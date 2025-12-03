@@ -1,6 +1,6 @@
 """HTTP client for Subconscious AI API."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import httpx
 
@@ -64,7 +64,7 @@ class APIClient:
                 **kwargs
             )
             response.raise_for_status()
-            return response.json()
+            return cast(Dict[str, Any], response.json())
 
     async def get(self, endpoint: str, **kwargs) -> Dict[str, Any]:
         """Make GET request."""
