@@ -28,8 +28,8 @@ cp .env.example .env
 
 2. Get your JWT token:
    - Login to [Subconscious AI](https://app.subconscious.ai)
-   - Open browser DevTools → Network tab
-   - Find any API request, copy the `Authorization: Bearer <token>` value
+   - Open Settings -> Click Access token (After you subscribed to the plan)
+   - Copy the `Authorization: Bearer <token>` value
 
 3. Add your token to `.env`:
 ```
