@@ -72,61 +72,7 @@ async def handle_check_causality(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # =============================================================================
-# STEP 2: Check Moderation (Content Policy)
-# =============================================================================
-
-def check_moderation_tool() -> MCPTool:
-    """Check if content complies with content policy."""
-    return MCPTool(
-        name="check_moderation",
-        description=(
-            "Check if a research question complies with content policy. "
-            "Flags content that contains violence, hate speech, or other policy violations. "
-            "Run this before creating an experiment to ensure compliance."
-        ),
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "why_prompt": {
-                    "type": "string",
-                    "description": "The research question to check for content policy compliance"
-                }
-            },
-            "required": ["why_prompt"]
-        }
-    )
-
-
-async def handle_check_moderation(arguments: Dict[str, Any]) -> Dict[str, Any]:
-    """Handle check_moderation tool execution."""
-    client = APIClient()
-
-    try:
-        # URL encode the why_prompt for query string
-        import urllib.parse
-        encoded_prompt = urllib.parse.quote(arguments['why_prompt'])
-        response = await client.post(
-            f"/api/v1/copilot/check-moderation?why_prompt={encoded_prompt}",
-            json={}
-        )
-
-        flagged = response.get("flagged", False)
-        return {
-            "success": True,
-            "data": response,
-            "message": f"Content {'FLAGGED - violates policy' if flagged else 'OK ✓'}"
-        }
-    except Exception as e:
-        # Note: 500 errors from moderation are usually due to OpenAI API key issues on the server
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to check moderation (may be OpenAI API issue on server)"
-        }
-
-
-# =============================================================================
-# STEP 3: Generate Attributes and Levels
+# STEP 2: Generate Attributes and Levels
 # =============================================================================
 
 def generate_attributes_levels_tool() -> MCPTool:
