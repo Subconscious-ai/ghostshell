@@ -4,7 +4,7 @@ MCP (Model Context Protocol) server for the Subconscious AI API. Enables AI assi
 
 ## Features
 
-- **Ideation Tools**: Validate research questions, check content policy, generate experiment attributes
+- **Ideation Tools**: Validate research questions, generate experiment attributes
 - **Experiment Management**: Create, monitor, and retrieve experiment results
 - **Population Validation**: Validate target populations before running experiments
 - **Analytics**: Access AMCE data and causal insights from completed experiments
@@ -74,7 +74,6 @@ python3 server/main.py
 | Tool | Description |
 |------|-------------|
 | `check_causality` | Validate research question is causal |
-| `check_moderation` | Check content policy compliance |
 | `generate_attributes_levels` | Generate experiment attributes/levels |
 | `create_experiment` | Create and run an experiment |
 | `get_experiment_status` | Check experiment progress |
@@ -88,11 +87,10 @@ python3 server/main.py
 
 ```
 1. check_causality("What factors influence EV purchases?")
-2. check_moderation("What factors influence EV purchases?")  
-3. generate_attributes_levels("What factors influence EV purchases?")
-4. create_experiment("What factors influence EV purchases?")
-5. get_experiment_status(run_id)
-6. get_experiment_results(run_id)
+2. generate_attributes_levels("What factors influence EV purchases?")
+3. create_experiment("What factors influence EV purchases?")
+4. get_experiment_status(run_id)
+5. get_experiment_results(run_id)
 ```
 
 ## Development
@@ -119,7 +117,7 @@ subconscious-ai-mcp-toolkit/
 │   ├── main.py              # MCP server entry point
 │   ├── config.py            # Configuration
 │   ├── tools/               # MCP tool definitions
-│   │   ├── ideation.py      # Causality, moderation, attributes
+│   │   ├── ideation.py      # Causality, attributes
 │   │   ├── experiments.py   # Experiment management
 │   │   ├── population.py    # Population validation
 │   │   └── analytics.py     # AMCE and insights

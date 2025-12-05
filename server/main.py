@@ -3,12 +3,11 @@
 
 Experiment Workflow:
 1. check_causality - Validate research question is causal
-2. check_moderation - Ensure content policy compliance
-3. generate_attributes_levels - Create experiment attributes/levels
-4. validate_population (optional) - Check target population size
-5. create_experiment - Run the experiment
-6. get_experiment_status - Track progress
-7. get_experiment_results - Get results when complete
+2. generate_attributes_levels - Create experiment attributes/levels
+3. validate_population (optional) - Check target population size
+4. create_experiment - Run the experiment
+5. get_experiment_status - Track progress
+6. get_experiment_results - Get results when complete
 """
 
 import asyncio
@@ -24,9 +23,8 @@ from mcp.types import TextContent, Tool
 
 from server.config import config
 from server.tools import (
-    # Ideation (Step 1-3)
+    # Ideation (Step 1-2)
     check_causality_tool,
-    check_moderation_tool,
     # Experiments
     create_experiment_tool,
     generate_attributes_levels_tool,
@@ -59,7 +57,6 @@ from server.tools.experiments import (
 )
 from server.tools.ideation import (
     handle_check_causality,
-    handle_check_moderation,
     handle_generate_attributes_levels,
 )
 from server.tools.personas import (
@@ -86,7 +83,6 @@ async def list_tools() -> list[Tool]:
     return [
         # Ideation workflow (run these first)
         check_causality_tool(),
-        check_moderation_tool(),
         generate_attributes_levels_tool(),
         # Population validation
         validate_population_tool(),
@@ -115,7 +111,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     handlers = {
         # Ideation
         "check_causality": handle_check_causality,
-        "check_moderation": handle_check_moderation,
         "generate_attributes_levels": handle_generate_attributes_levels,
         # Population
         "validate_population": handle_validate_population,
