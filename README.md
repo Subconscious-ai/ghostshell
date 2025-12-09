@@ -1,48 +1,47 @@
-# Subconscious AI MCP Toolkit
+# Subconscious AI MCP Server
 
-MCP (Model Context Protocol) server for the Subconscious AI API. Enables AI assistants like Claude and Cursor to run conjoint experiments programmatically.
+Run AI-powered conjoint experiments from Claude, Cursor, or any MCP-compatible client.
 
-## Features
+## 🚀 Quick Start
 
-- **Ideation Tools**: Validate research questions, generate experiment attributes
-- **Experiment Management**: Create, monitor, and retrieve experiment results
-- **Population Validation**: Validate target populations before running experiments
-- **Analytics**: Access AMCE data and causal insights from completed experiments
+### Option 1: Use Hosted Server (Recommended)
 
-## Installation
+Add to your MCP client configuration:
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "subconscious-ai": {
+      "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
+    }
+  }
+}
+```
+
+**Cursor** (`~/.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "subconscious-ai": {
+      "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
+    }
+  }
+}
+```
+
+Get your token at [app.subconscious.ai](https://app.subconscious.ai) → Settings → Access Token
+
+### Option 2: Run Locally
 
 ```bash
 git clone https://github.com/Subconscious-ai/subconscious-ai-mcp.git
 cd subconscious-ai-mcp
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Configuration
-
-1. Copy the example environment file:
-```bash
-cp .env.example .env
-```
-
-2. Get your JWT token:
-   - Login to [Subconscious AI](https://app.subconscious.ai)
-   - Open Settings -> Click Access token (After you subscribed to the plan)
-   - Copy the `Authorization: Bearer <token>` value
-
-3. Add your token to `.env`:
-```
-AUTH0_JWT_TOKEN=your_token_here
-API_BASE_URL=https://api.dev.subconscious.ai
-```
-
-## Usage
-
-### Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
+Add to your MCP config:
 ```json
 {
   "mcpServers": {
@@ -58,132 +57,89 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-### Cursor IDE
-
-Add to `~/.cursor/mcp.json` (same format as Claude).
-
-### Test Locally
-
-```bash
-source venv/bin/activate
-python3 server/main.py
-```
-
-## Available Tools
+## 📋 Available Tools
 
 | Tool | Description |
 |------|-------------|
 | `check_causality` | Validate research question is causal |
 | `generate_attributes_levels` | Generate experiment attributes/levels |
-| `create_experiment` | Create and run an experiment |
+| `create_experiment` | Create and run a conjoint experiment |
 | `get_experiment_status` | Check experiment progress |
-| `get_experiment_results` | Get experiment results |
-| `list_experiments` | List all experiments |
-| `validate_population` | Validate target population |
+| `list_experiments` | List all your experiments |
+| `get_experiment_results` | Get detailed results |
 | `get_amce_data` | Get AMCE analytics data |
-| `get_causal_insights` | Get causal insights |
+| `get_causal_insights` | Get AI-generated insights |
 
-## Experiment Workflow
+## 🔬 Experiment Workflow
 
 ```
-1. check_causality("What factors influence EV purchases?")
-2. generate_attributes_levels("What factors influence EV purchases?")
-3. create_experiment("What factors influence EV purchases?")
-4. get_experiment_status(run_id)
-5. get_experiment_results(run_id)
+1. "Check if this is causal: What factors influence EV purchases?"
+2. "Generate attributes for an EV preference study"
+3. "Create an experiment about EV purchasing decisions"
+4. "Check the status of experiment <run_id>"
+5. "Get causal insights from experiment <run_id>"
 ```
 
-## Deployment
+## 🌐 REST API
 
-### Deploy to Vercel (Recommended)
+You can also call tools directly via HTTP:
 
-1. **Install Vercel CLI**:
+```bash
+# List experiments
+curl -X POST https://ghostshell-runi.vercel.app/api/call/list_experiments \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 5}'
+
+# Check causality
+curl -X POST https://ghostshell-runi.vercel.app/api/call/check_causality \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"why_prompt": "What factors influence EV purchases?"}'
+
+# Create experiment
+curl -X POST https://ghostshell-runi.vercel.app/api/call/create_experiment \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"why_prompt": "What factors influence EV purchases?"}'
+```
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Server info |
+| `/api/health` | GET | Health check |
+| `/api/tools` | GET | List all tools |
+| `/api/sse` | GET | MCP SSE connection |
+| `/api/call/{tool}` | POST | Call a tool (REST) |
+
+## 🏗️ Self-Hosting
+
+Deploy your own instance:
+
 ```bash
 npm i -g vercel
-```
-
-2. **Deploy**:
-```bash
 cd subconscious-ai-mcp-toolkit
-vercel
+vercel --prod
 ```
 
-3. **Set Environment Variables** in Vercel Dashboard:
-   - `AUTH0_JWT_TOKEN`: Your API token
-   - `API_BASE_URL`: `https://api.dev.subconscious.ai`
-
-4. **Connect from AI Clients**:
-
-Once deployed, users can connect via SSE transport:
-
-```json
-{
-  "mcpServers": {
-    "subconscious-ai": {
-      "url": "https://your-project.vercel.app/api/sse"
-    }
-  }
-}
-```
-
-### API Endpoints (after deployment)
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /` | Server info and available tools |
-| `GET /api/health` | Health check |
-| `GET /api/sse` | SSE connection for MCP clients |
-| `POST /api/messages` | Message endpoint for MCP |
-
-### Run Locally with SSE
-
-```bash
-source venv/bin/activate
-uvicorn api.index:app --host 0.0.0.0 --port 8000
-```
-
-Then connect via: `http://localhost:8000/api/sse`
-
-## Development
-
-```bash
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest tests/ -v
-
-# Lint
-ruff check server/
-
-# Type check
-mypy server/
-```
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 subconscious-ai-mcp-toolkit/
 ├── api/
-│   └── index.py             # Vercel serverless function (SSE)
+│   └── index.py          # Vercel serverless (SSE + REST)
 ├── server/
-│   ├── main.py              # MCP server entry point (stdio)
-│   ├── config.py            # Configuration
-│   ├── tools/               # MCP tool definitions
-│   │   ├── ideation.py      # Causality, attributes
-│   │   ├── experiments.py   # Experiment management
-│   │   ├── population.py    # Population validation
-│   │   └── analytics.py     # AMCE and insights
-│   └── utils/
-│       └── api_client.py    # HTTP client
-├── tests/                   # Unit tests
-├── examples/                # Config examples
-├── .github/workflows/       # CI/CD
-├── vercel.json              # Vercel deployment config
-├── pyproject.toml           # Project config
-└── requirements.txt         # Dependencies
+│   ├── main.py           # Local MCP server (stdio)
+│   ├── config.py         # Configuration
+│   └── tools/            # Tool implementations
+├── examples/
+│   └── claude/config.json
+├── vercel.json
+└── requirements.txt
 ```
 
-## License
+## 📄 License
 
-MIT License - see LICENSE file for details.
+MIT License
