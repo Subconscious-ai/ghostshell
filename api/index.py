@@ -147,7 +147,9 @@ async def list_experiments(token: str, args: dict) -> dict:
     """List all experiments."""
     try:
         response = await api_request("GET", "/api/v1/runs/all", token)
-        runs = response.get("runs", [])[:args.get("limit", 20)]
+        # API may return list directly or dict with "runs" key
+        runs = response if isinstance(response, list) else response.get("runs", [])
+        runs = runs[:args.get("limit", 20)]
         return {"success": True, "data": {"runs": runs, "count": len(runs)}}
     except Exception as e:
         return {"success": False, "error": str(e)}
