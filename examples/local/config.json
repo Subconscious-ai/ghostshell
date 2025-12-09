@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "subconscious-ai": {
+      "command": "python3",
+      "args": ["server/main.py"],
+      "cwd": "/path/to/subconscious-ai-mcp-toolkit",
+      "env": {
+        "AUTH0_JWT_TOKEN": "YOUR_TOKEN_HERE",
+        "API_BASE_URL": "https://api.dev.subconscious.ai"
+      }
+    }
+  }
+}
+
