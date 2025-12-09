@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements.txt
 
 # Core MCP dependencies
-mcp>=0.1.0
+mcp>=1.0.0
 
 # HTTP client (async)
 httpx>=0.25.0
@@ -12,3 +12,7 @@ pydantic>=2.0.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 
+# Web server (for SSE transport / Vercel deployment)
+starlette>=0.30.0
+uvicorn>=0.24.0
+sse-starlette>=1.6.0

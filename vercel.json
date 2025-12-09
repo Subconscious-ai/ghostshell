@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/sse",
+      "dest": "/api/index.py",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Content-Type": "text/event-stream"
+      }
+    },
+    {
+      "src": "/api/messages",
+      "dest": "/api/index.py",
+      "methods": ["POST"]
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/api",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.py"
+    }
+  ],
+  "env": {
+    "AUTH0_JWT_TOKEN": "@auth0_jwt_token",
+    "API_BASE_URL": "@api_base_url"
+  },
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300
+    }
+  }
+}
+

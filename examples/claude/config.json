@@ -4,7 +4,7 @@
       "command": "/Users/niharshah/Documents/subconcsiousai/subconscious-ai-mcp-toolkit/venv/bin/python3",
       "args": ["/Users/niharshah/Documents/subconcsiousai/subconscious-ai-mcp-toolkit/server/main.py"],
       "env": {
-        "AUTH0_JWT_TOKEN": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IndrTjRacTljU2luTC1neXYxMVNqYyJ9.eyJodHRwczovL3d3dy5hcGkuc3ViY29uc2Npb3VzLmFpL3JvbGVzIjpbImVtcGxveWVlIl0sImh0dHBzOi8vd3d3LmFwaS5zdWJjb25zY2lvdXMuYWkvZW1haWwiOiJuaWhhckBzdWJjb25zY2lvdXMuYWkiLCJpc3MiOiJodHRwczovL2Rldi01cWh1eHl6a21kOGNrdTZpLnVzLmF1dGgwLmNvbS8iLCJzdWIiOiJnb29nbGUtb2F1dGgyfDEwMDY5NDUwMDA4NjU3NzA0ODA4NyIsImF1ZCI6WyJodHRwczovL2Rldi01cWh1eHl6a21kOGNrdTZpLnVzLmF1dGgwLmNvbS9hcGkvdjIvIiwiaHR0cHM6Ly9kZXYtNXFodXh5emttZDhja3U2aS51cy5hdXRoMC5jb20vdXNlcmluZm8iXSwiaWF0IjoxNzY0NjAzNzI1LCJleHAiOjE3NjcxOTU3MjUsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJhenAiOiJNUjVnUzBRU2UzYm9NTkF0blIwdDF0MmN0TnB6U0hzZCJ9.X6Ri6I8aZMjUvB-hX0iw2ywMquS9Xv3ypuFss3fim2n7eukOPOLvm1zmZQc84p1TbXFp9E9qBaYqfRgT9bw6MXPCaYgtvoVg4Q2nHx3eRxrQBkAa-hl-QzJXWmi9KkYdJszBN6EDNLlAypdR1LDJofhV8I4km7Vn8xHU_XMp-_BAbr4alUPpvtutGP2qeCJg730ihbeERTQEXP1HjOVcR7CPnRyA_TMkzy4ra6L14SkK9Vfv61fdpEGCWn11a1kA7NV0QqgucSwgEy68CV_bv8MrAJ6hWJbZm5n4OjeNsvMq_W0hOCSHbWRz3xXOkHrwA72IQ9yBRIKhMjG4Ev4-3A",
+        "AUTH0_JWT_TOKEN": "YOUR_JWT_TOKEN",
         "API_BASE_URL": "https://api.dev.subconscious.ai"
       }
     }
