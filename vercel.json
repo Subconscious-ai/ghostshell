@@ -37,9 +37,5 @@
       "src": "/(.*)",
       "dest": "/api/index.py"
     }
-  ],
-  "env": {
-    "AUTH0_JWT_TOKEN": "@auth0_jwt_token",
-    "API_BASE_URL": "@api_base_url"
-  }
+  ]
 }
