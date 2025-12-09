@@ -1,44 +1,65 @@
-"""Vercel serverless function for Subconscious AI MCP server.
+"""Subconscious AI MCP Server - Vercel Deployment
 
-Self-contained version that works in Vercel's serverless environment.
-Users must provide their own JWT token in the Authorization header.
+Remote MCP server for AI assistants to run conjoint experiments.
+Supports MCP protocol via SSE for Cursor/Claude Desktop integration.
+
+External users add to ~/.cursor/mcp.json:
+{
+  "mcpServers": {
+    "subconscious-ai": {
+      "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
+    }
+  }
+}
 """
 
+import asyncio
 import json
 import os
-from typing import Any, Dict, Optional
+import uuid
+from typing import Any, Dict, List, Optional
 
 import httpx
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Route
 
+# =============================================================================
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dev.subconscious.ai")
+# =============================================================================
 
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dev.subconscious.ai")
+SERVER_NAME = "subconscious-ai"
+SERVER_VERSION = "1.0.0"
+
+
+# =============================================================================
+# Authentication
+# =============================================================================
 
 def extract_token(request: Request) -> Optional[str]:
-    """Extract JWT token from request Authorization header."""
+    """Extract JWT token from Authorization header or query param."""
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         return auth_header[7:]
-    return None
+    return request.query_params.get("token")
 
 
-# Simple API client
+# =============================================================================
+# API Client
+# =============================================================================
+
 async def api_request(method: str, endpoint: str, token: str, json_data: dict = None) -> Dict[str, Any]:
-    """Make authenticated API request using user's token."""
-    if not token:
-        raise ValueError("Authorization token required. Include 'Authorization: Bearer YOUR_TOKEN' header.")
-    
+    """Make authenticated API request to Subconscious AI backend."""
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    
     url = f"{API_BASE_URL}{endpoint}"
-    
+
     async with httpx.AsyncClient(timeout=300) as client:
         if method == "GET":
             response = await client.get(url, headers=headers)
@@ -46,16 +67,18 @@ async def api_request(method: str, endpoint: str, token: str, json_data: dict = 
             response = await client.post(url, headers=headers, json=json_data or {})
         else:
             raise ValueError(f"Unsupported method: {method}")
-        
+
         response.raise_for_status()
         return response.json()
 
 
-# Tool handlers - all require user's token
+# =============================================================================
+# Tool Implementations (15 tools)
+# =============================================================================
+
 async def check_causality(token: str, args: dict) -> dict:
-    """Check if research question is causal."""
     try:
-        response = await api_request("POST", "/api/v1/check-causality", token, {
+        response = await api_request("POST", "/api/v2/copilot/causality", token, {
             "why_prompt": args["why_prompt"],
             "llm_model": args.get("llm_model", "databricks-claude-sonnet-4")
         })
@@ -65,10 +88,8 @@ async def check_causality(token: str, args: dict) -> dict:
 
 
 async def generate_attributes_levels(token: str, args: dict) -> dict:
-    """Generate experiment attributes and levels."""
-    model_map = {"sonnet": "databricks-claude-sonnet-4", "gpt4": "azure-openai-gpt4", "haiku": "databricks-claude-sonnet-4"}
+    model_map = {"sonnet": "databricks-claude-sonnet-4", "gpt4": "azure-openai-gpt4"}
     llm_model = model_map.get(args.get("llm_model", "sonnet"), "databricks-claude-sonnet-4")
-    
     try:
         response = await api_request("POST", "/api/v1/attributes-levels-claude", token, {
             "why_prompt": args["why_prompt"],
@@ -85,14 +106,12 @@ async def generate_attributes_levels(token: str, args: dict) -> dict:
 
 
 async def create_experiment(token: str, args: dict) -> dict:
-    """Create and run an experiment."""
-    model_map = {"sonnet": "databricks-claude-sonnet-4", "gpt4": "azure-openai-gpt4", "haiku": "databricks-claude-sonnet-4"}
+    model_map = {"sonnet": "databricks-claude-sonnet-4", "gpt4": "azure-openai-gpt4"}
     llm_model = model_map.get(args.get("expr_llm_model", "sonnet"), "databricks-claude-sonnet-4")
-    
     country = args.get("country", "United States")
     if country == "United States":
         country = "United States of America (USA)"
-    
+
     payload = {
         "why_prompt": args["why_prompt"],
         "country": country,
@@ -116,7 +135,7 @@ async def create_experiment(token: str, args: dict) -> dict:
         "binary_choice": False,
         "match_population_distribution": False
     }
-    
+
     if args.get("pre_cooked_attributes_and_levels_lookup"):
         raw_attrs = args["pre_cooked_attributes_and_levels_lookup"]
         formatted = []
@@ -126,7 +145,7 @@ async def create_experiment(token: str, args: dict) -> dict:
             elif isinstance(item, list) and len(item) >= 2:
                 formatted.append(item if isinstance(item[1], list) else [item[0], item[1:]])
         payload["pre_cooked_attributes_and_levels_lookup"] = formatted
-    
+
     try:
         response = await api_request("POST", "/api/v1/experiments", token, payload)
         return {"success": True, "data": response}
@@ -135,7 +154,6 @@ async def create_experiment(token: str, args: dict) -> dict:
 
 
 async def get_experiment_status(token: str, args: dict) -> dict:
-    """Get experiment status."""
     try:
         response = await api_request("GET", f"/api/v1/runs/{args['run_id']}", token)
         return {"success": True, "data": response}
@@ -144,10 +162,8 @@ async def get_experiment_status(token: str, args: dict) -> dict:
 
 
 async def list_experiments(token: str, args: dict) -> dict:
-    """List all experiments."""
     try:
         response = await api_request("GET", "/api/v1/runs/all", token)
-        # API may return list directly or dict with "runs" key
         runs = response if isinstance(response, list) else response.get("runs", [])
         runs = runs[:args.get("limit", 20)]
         return {"success": True, "data": {"runs": runs, "count": len(runs)}}
@@ -156,7 +172,6 @@ async def list_experiments(token: str, args: dict) -> dict:
 
 
 async def get_experiment_results(token: str, args: dict) -> dict:
-    """Get experiment results."""
     try:
         response = await api_request("GET", f"/api/v1/runs/{args['run_id']}", token)
         return {"success": True, "data": response}
@@ -165,7 +180,6 @@ async def get_experiment_results(token: str, args: dict) -> dict:
 
 
 async def get_amce_data(token: str, args: dict) -> dict:
-    """Get AMCE data."""
     try:
         response = await api_request("GET", f"/api/v3/runs/{args['run_id']}/processed/amce", token)
         return {"success": True, "data": response}
@@ -174,7 +188,6 @@ async def get_amce_data(token: str, args: dict) -> dict:
 
 
 async def get_causal_insights(token: str, args: dict) -> dict:
-    """Get causal insights."""
     try:
         response = await api_request("POST", f"/api/v3/runs/{args['run_id']}/generate/causal-sentences", token, {})
         sentences = [item.get("sentence", str(item)) if isinstance(item, dict) else str(item) for item in response] if isinstance(response, list) else []
@@ -184,7 +197,6 @@ async def get_causal_insights(token: str, args: dict) -> dict:
 
 
 async def validate_population(token: str, args: dict) -> dict:
-    """Validate target population for an experiment."""
     try:
         response = await api_request("POST", "/api/v1/population/validate", token, {
             "country": args.get("country", "United States of America (USA)"),
@@ -196,7 +208,6 @@ async def validate_population(token: str, args: dict) -> dict:
 
 
 async def get_population_stats(token: str, args: dict) -> dict:
-    """Get population statistics for a country."""
     try:
         country = args.get("country", "United States of America (USA)")
         response = await api_request("GET", f"/api/v1/population/stats?country={country}", token)
@@ -206,7 +217,6 @@ async def get_population_stats(token: str, args: dict) -> dict:
 
 
 async def get_run_details(token: str, args: dict) -> dict:
-    """Get detailed information about a specific run."""
     try:
         response = await api_request("GET", f"/api/v1/runs/{args['run_id']}", token)
         return {"success": True, "data": response}
@@ -215,7 +225,6 @@ async def get_run_details(token: str, args: dict) -> dict:
 
 
 async def get_run_artifacts(token: str, args: dict) -> dict:
-    """Get artifacts from a completed run."""
     try:
         response = await api_request("GET", f"/api/v3/runs/{args['run_id']}/artifacts", token)
         return {"success": True, "data": response}
@@ -224,29 +233,22 @@ async def get_run_artifacts(token: str, args: dict) -> dict:
 
 
 async def update_run_config(token: str, args: dict) -> dict:
-    """Update configuration for a run."""
     try:
-        response = await api_request("POST", f"/api/v1/runs/{args['run_id']}/config", token, {
-            "config": args.get("config", {})
-        })
+        response = await api_request("POST", f"/api/v1/runs/{args['run_id']}/config", token, args.get("config", {}))
         return {"success": True, "data": response}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 async def generate_personas(token: str, args: dict) -> dict:
-    """Generate AI personas for an experiment."""
     try:
-        response = await api_request("POST", f"/api/v3/runs/{args['run_id']}/generate/personas", token, {
-            "count": args.get("count", 5)
-        })
+        response = await api_request("POST", f"/api/v3/runs/{args['run_id']}/generate/personas", token, {"count": args.get("count", 5)})
         return {"success": True, "data": response}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 async def get_experiment_personas(token: str, args: dict) -> dict:
-    """Get personas from a completed experiment."""
     try:
         response = await api_request("GET", f"/api/v3/runs/{args['run_id']}/personas", token)
         return {"success": True, "data": response}
@@ -254,171 +256,364 @@ async def get_experiment_personas(token: str, args: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
-# Tool definitions - 15 tools total
+# =============================================================================
+# Tool Registry with MCP Schemas
+# =============================================================================
+
 TOOLS = {
-    # Ideation (Step 1-2)
     "check_causality": {
         "handler": check_causality,
         "description": "Check if a research question is causal. Run this first before creating an experiment.",
-        "parameters": {"why_prompt": {"type": "string", "required": True}}
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "why_prompt": {"type": "string", "description": "The research question to validate"}
+            },
+            "required": ["why_prompt"]
+        }
     },
     "generate_attributes_levels": {
         "handler": generate_attributes_levels,
-        "description": "Generate attributes and levels for a conjoint experiment based on a research question.",
-        "parameters": {"why_prompt": {"type": "string", "required": True}}
+        "description": "Generate attributes and levels for a conjoint experiment.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "why_prompt": {"type": "string", "description": "The causal research question"},
+                "attribute_count": {"type": "integer", "default": 5},
+                "level_count": {"type": "integer", "default": 4}
+            },
+            "required": ["why_prompt"]
+        }
     },
-    # Population validation
     "validate_population": {
         "handler": validate_population,
-        "description": "Validate target population demographics for an experiment.",
-        "parameters": {"country": {"type": "string"}, "target_population": {"type": "object"}}
+        "description": "Validate target population demographics.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "default": "United States of America (USA)"},
+                "target_population": {"type": "object"}
+            }
+        }
     },
     "get_population_stats": {
         "handler": get_population_stats,
-        "description": "Get population statistics and demographics for a country.",
-        "parameters": {"country": {"type": "string", "default": "United States of America (USA)"}}
+        "description": "Get population statistics for a country.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "country": {"type": "string", "default": "United States of America (USA)"}
+            }
+        }
     },
-    # Experiment management
     "create_experiment": {
         "handler": create_experiment,
-        "description": "Create and run a new conjoint experiment. The experiment will be queued and processed.",
-        "parameters": {"why_prompt": {"type": "string", "required": True}}
+        "description": "Create and run a conjoint experiment.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "why_prompt": {"type": "string", "description": "The research question"},
+                "confidence_level": {"type": "string", "enum": ["Low", "Reasonable", "High"], "default": "Low"}
+            },
+            "required": ["why_prompt"]
+        }
     },
     "get_experiment_status": {
         "handler": get_experiment_status,
-        "description": "Check the current status of a running experiment.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Check experiment status.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     },
     "get_experiment_results": {
         "handler": get_experiment_results,
-        "description": "Get detailed results from a completed experiment.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Get experiment results.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     },
     "list_experiments": {
         "handler": list_experiments,
-        "description": "List all experiments for your account.",
-        "parameters": {"limit": {"type": "integer", "default": 20}}
+        "description": "List all experiments.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"limit": {"type": "integer", "default": 20}}
+        }
     },
-    # Run details
     "get_run_details": {
         "handler": get_run_details,
-        "description": "Get detailed information about a specific experiment run.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Get detailed run information.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     },
     "get_run_artifacts": {
         "handler": get_run_artifacts,
-        "description": "Get artifacts (files, data) from a completed experiment run.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Get run artifacts and files.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     },
     "update_run_config": {
         "handler": update_run_config,
-        "description": "Update configuration settings for an experiment run.",
-        "parameters": {"run_id": {"type": "string", "required": True}, "config": {"type": "object"}}
+        "description": "Update run configuration.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "config": {"type": "object"}
+            },
+            "required": ["run_id"]
+        }
     },
-    # Personas
     "generate_personas": {
         "handler": generate_personas,
-        "description": "Generate AI personas for an experiment based on the population.",
-        "parameters": {"run_id": {"type": "string", "required": True}, "count": {"type": "integer", "default": 5}}
+        "description": "Generate AI personas for experiment.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "count": {"type": "integer", "default": 5}
+            },
+            "required": ["run_id"]
+        }
     },
     "get_experiment_personas": {
         "handler": get_experiment_personas,
-        "description": "Get the generated personas from a completed experiment.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Get experiment personas.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     },
-    # Analytics
     "get_amce_data": {
         "handler": get_amce_data,
-        "description": "Get AMCE (Average Marginal Component Effects) analytics data showing impact of each attribute level.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Get AMCE analytics data.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     },
     "get_causal_insights": {
         "handler": get_causal_insights,
-        "description": "Get AI-generated causal insight statements from experiment results.",
-        "parameters": {"run_id": {"type": "string", "required": True}}
+        "description": "Get AI-generated causal insights.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"]
+        }
     }
 }
 
 
-# API Endpoints
-async def health_check(request: Request) -> JSONResponse:
-    """Health check endpoint."""
-    return JSONResponse({
-        "status": "healthy",
-        "server": "subconscious-ai-mcp",
-        "version": "1.0.0",
-        "tools_count": len(TOOLS),
-        "auth": "user-provided (include Authorization: Bearer YOUR_TOKEN header)"
-    })
+# =============================================================================
+# MCP Protocol over SSE
+# =============================================================================
+
+# Session storage for SSE connections
+SESSIONS: Dict[str, dict] = {}
 
 
-async def server_info(request: Request) -> JSONResponse:
-    """Server information endpoint."""
-    return JSONResponse({
-        "name": "subconscious-ai-mcp",
-        "version": "1.0.0",
-        "description": "MCP server for Subconscious AI - Run conjoint experiments programmatically",
-        "authentication": {
-            "type": "Bearer token",
-            "header": "Authorization: Bearer YOUR_TOKEN",
-            "get_token": "https://app.subconscious.ai (Settings → Access Token after subscribing)"
-        },
-        "tools": list(TOOLS.keys()),
-        "endpoints": {
-            "health": "/api/health",
-            "tools": "/api/tools",
-            "call": "/api/call/{tool_name} (POST, requires auth)"
-        },
-        "example": {
-            "curl": "curl -X POST https://ghostshell-runi.vercel.app/api/call/list_experiments -H 'Authorization: Bearer YOUR_TOKEN' -H 'Content-Type: application/json' -d '{}'"
-        },
-        "documentation": "https://github.com/Subconscious-ai/subconscious-ai-mcp-toolkit"
-    })
+async def handle_mcp_request(method: str, params: dict, msg_id: Any, token: str) -> dict:
+    """Handle MCP JSON-RPC requests."""
+
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION}
+            }
+        }
+
+    elif method == "tools/list":
+        tools_list = [
+            {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
+            for name, info in TOOLS.items()
+        ]
+        return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": tools_list}}
+
+    elif method == "tools/call":
+        tool_name = params.get("name")
+        arguments = params.get("arguments", {})
+
+        if tool_name not in TOOLS:
+            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}}
+
+        try:
+            result = await TOOLS[tool_name]["handler"](token, arguments)
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]}
+            }
+        except Exception as e:
+            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32000, "message": str(e)}}
+
+    elif method == "notifications/initialized":
+        return None  # No response for notifications
+
+    else:
+        return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
 
 
-async def list_tools(request: Request) -> JSONResponse:
-    """List available tools."""
-    tools_list = [
-        {"name": name, "description": info["description"], "parameters": info["parameters"]}
-        for name, info in TOOLS.items()
-    ]
-    return JSONResponse({"tools": tools_list})
-
-
-async def call_tool(request: Request) -> JSONResponse:
-    """Call a specific tool. Requires Authorization: Bearer TOKEN header."""
-    tool_name = request.path_params.get("tool_name")
-    
-    if tool_name not in TOOLS:
-        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-    
-    # Extract user's token from Authorization header
+async def sse_endpoint(request: Request):
+    """SSE endpoint for MCP protocol - Cursor/Claude connect here."""
     token = extract_token(request)
     if not token:
-        return JSONResponse({
-            "error": "Authorization required",
-            "message": "Include 'Authorization: Bearer YOUR_TOKEN' header. Get your token from https://app.subconscious.ai after subscribing."
-        }, status_code=401)
-    
+        return JSONResponse({"error": "Token required. Add ?token=YOUR_TOKEN to URL"}, status_code=401)
+
+    session_id = str(uuid.uuid4())
+    SESSIONS[session_id] = {"token": token, "responses": asyncio.Queue()}
+
+    async def event_stream():
+        # Send endpoint info for message posting
+        endpoint_event = f"event: endpoint\ndata: /api/sse/message?session_id={session_id}\n\n"
+        yield endpoint_event
+
+        try:
+            while True:
+                try:
+                    # Wait for responses with timeout
+                    response = await asyncio.wait_for(
+                        SESSIONS[session_id]["responses"].get(),
+                        timeout=30
+                    )
+                    if response:
+                        yield f"event: message\ndata: {json.dumps(response)}\n\n"
+                except asyncio.TimeoutError:
+                    # Send keepalive
+                    yield ": keepalive\n\n"
+        except Exception:
+            pass
+        finally:
+            SESSIONS.pop(session_id, None)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+async def sse_message_endpoint(request: Request):
+    """Handle POST messages from MCP clients."""
+    session_id = request.query_params.get("session_id")
+
+    if not session_id or session_id not in SESSIONS:
+        return JSONResponse({"error": "Invalid session"}, status_code=400)
+
+    session = SESSIONS[session_id]
+
     try:
-        body = await request.json()
-    except:
-        body = {}
-    
-    try:
-        result = await TOOLS[tool_name]["handler"](token, body)
-        return JSONResponse(result)
+        message = await request.json()
+        response = await handle_mcp_request(
+            message.get("method"),
+            message.get("params", {}),
+            message.get("id"),
+            session["token"]
+        )
+
+        if response:
+            await session["responses"].put(response)
+
+        return JSONResponse({"status": "ok"})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# Create Starlette app - this is what Vercel uses
+# =============================================================================
+# REST API Endpoints
+# =============================================================================
+
+async def health_check(request: Request) -> JSONResponse:
+    return JSONResponse({
+        "status": "healthy",
+        "server": SERVER_NAME,
+        "version": SERVER_VERSION,
+        "tools": len(TOOLS)
+    })
+
+
+async def server_info(request: Request) -> JSONResponse:
+    return JSONResponse({
+        "name": SERVER_NAME,
+        "version": SERVER_VERSION,
+        "description": "MCP server for Subconscious AI conjoint experiments",
+        "mcp_endpoint": "/api/sse?token=YOUR_TOKEN",
+        "tools": list(TOOLS.keys()),
+        "setup": {
+            "cursor": "Add to ~/.cursor/mcp.json",
+            "config": {
+                "mcpServers": {
+                    "subconscious-ai": {
+                        "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
+                    }
+                }
+            }
+        }
+    })
+
+
+async def list_tools_endpoint(request: Request) -> JSONResponse:
+    tools_list = [
+        {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
+        for name, info in TOOLS.items()
+    ]
+    return JSONResponse({"tools": tools_list, "count": len(tools_list)})
+
+
+async def call_tool_endpoint(request: Request) -> JSONResponse:
+    tool_name = request.path_params.get("tool_name")
+    if tool_name not in TOOLS:
+        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+
+    token = extract_token(request)
+    if not token:
+        return JSONResponse({"error": "Authorization required"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    result = await TOOLS[tool_name]["handler"](token, body)
+    return JSONResponse(result)
+
+
+# =============================================================================
+# Application
+# =============================================================================
+
+middleware = [
+    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+]
+
 app = Starlette(
     routes=[
         Route("/", endpoint=server_info),
         Route("/api", endpoint=server_info),
         Route("/api/health", endpoint=health_check),
-        Route("/api/tools", endpoint=list_tools),
-        Route("/api/call/{tool_name}", endpoint=call_tool, methods=["POST"]),
-    ]
+        Route("/api/tools", endpoint=list_tools_endpoint),
+        Route("/api/sse", endpoint=sse_endpoint),
+        Route("/api/sse/message", endpoint=sse_message_endpoint, methods=["POST"]),
+        Route("/api/call/{tool_name}", endpoint=call_tool_endpoint, methods=["POST"]),
+    ],
+    middleware=middleware
 )
