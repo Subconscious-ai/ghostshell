@@ -93,6 +93,57 @@ python3 server/main.py
 5. get_experiment_results(run_id)
 ```
 
+## Deployment
+
+### Deploy to Vercel (Recommended)
+
+1. **Install Vercel CLI**:
+```bash
+npm i -g vercel
+```
+
+2. **Deploy**:
+```bash
+cd subconscious-ai-mcp-toolkit
+vercel
+```
+
+3. **Set Environment Variables** in Vercel Dashboard:
+   - `AUTH0_JWT_TOKEN`: Your API token
+   - `API_BASE_URL`: `https://api.dev.subconscious.ai`
+
+4. **Connect from AI Clients**:
+
+Once deployed, users can connect via SSE transport:
+
+```json
+{
+  "mcpServers": {
+    "subconscious-ai": {
+      "url": "https://your-project.vercel.app/api/sse"
+    }
+  }
+}
+```
+
+### API Endpoints (after deployment)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | Server info and available tools |
+| `GET /api/health` | Health check |
+| `GET /api/sse` | SSE connection for MCP clients |
+| `POST /api/messages` | Message endpoint for MCP |
+
+### Run Locally with SSE
+
+```bash
+source venv/bin/activate
+uvicorn api.index:app --host 0.0.0.0 --port 8000
+```
+
+Then connect via: `http://localhost:8000/api/sse`
+
 ## Development
 
 ```bash
@@ -113,8 +164,10 @@ mypy server/
 
 ```
 subconscious-ai-mcp-toolkit/
+├── api/
+│   └── index.py             # Vercel serverless function (SSE)
 ├── server/
-│   ├── main.py              # MCP server entry point
+│   ├── main.py              # MCP server entry point (stdio)
 │   ├── config.py            # Configuration
 │   ├── tools/               # MCP tool definitions
 │   │   ├── ideation.py      # Causality, attributes
@@ -126,6 +179,7 @@ subconscious-ai-mcp-toolkit/
 ├── tests/                   # Unit tests
 ├── examples/                # Config examples
 ├── .github/workflows/       # CI/CD
+├── vercel.json              # Vercel deployment config
 ├── pyproject.toml           # Project config
 └── requirements.txt         # Dependencies
 ```
