@@ -1,11 +1,12 @@
 """Vercel serverless function for Subconscious AI MCP server.
 
 Self-contained version that works in Vercel's serverless environment.
+Users must provide their own JWT token in the Authorization header.
 """
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import httpx
 from starlette.applications import Starlette
@@ -15,16 +16,24 @@ from starlette.routing import Route
 
 # Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dev.subconscious.ai")
-AUTH0_JWT_TOKEN = os.getenv("AUTH0_JWT_TOKEN", "")
+
+
+def extract_token(request: Request) -> Optional[str]:
+    """Extract JWT token from request Authorization header."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    return None
+
 
 # Simple API client
-async def api_request(method: str, endpoint: str, json_data: dict = None) -> Dict[str, Any]:
-    """Make authenticated API request."""
-    if not AUTH0_JWT_TOKEN:
-        raise ValueError("AUTH0_JWT_TOKEN not configured")
+async def api_request(method: str, endpoint: str, token: str, json_data: dict = None) -> Dict[str, Any]:
+    """Make authenticated API request using user's token."""
+    if not token:
+        raise ValueError("Authorization token required. Include 'Authorization: Bearer YOUR_TOKEN' header.")
     
     headers = {
-        "Authorization": f"Bearer {AUTH0_JWT_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
     
@@ -42,11 +51,11 @@ async def api_request(method: str, endpoint: str, json_data: dict = None) -> Dic
         return response.json()
 
 
-# Tool handlers
-async def check_causality(args: dict) -> dict:
+# Tool handlers - all require user's token
+async def check_causality(token: str, args: dict) -> dict:
     """Check if research question is causal."""
     try:
-        response = await api_request("POST", "/api/v1/check-causality", {
+        response = await api_request("POST", "/api/v1/check-causality", token, {
             "why_prompt": args["why_prompt"],
             "llm_model": args.get("llm_model", "databricks-claude-sonnet-4")
         })
@@ -55,13 +64,13 @@ async def check_causality(args: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def generate_attributes_levels(args: dict) -> dict:
+async def generate_attributes_levels(token: str, args: dict) -> dict:
     """Generate experiment attributes and levels."""
     model_map = {"sonnet": "databricks-claude-sonnet-4", "gpt4": "azure-openai-gpt4", "haiku": "databricks-claude-sonnet-4"}
     llm_model = model_map.get(args.get("llm_model", "sonnet"), "databricks-claude-sonnet-4")
     
     try:
-        response = await api_request("POST", "/api/v1/attributes-levels-claude", {
+        response = await api_request("POST", "/api/v1/attributes-levels-claude", token, {
             "why_prompt": args["why_prompt"],
             "country": args.get("country", "United States"),
             "year": args.get("year", "2024"),
@@ -75,7 +84,7 @@ async def generate_attributes_levels(args: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
-async def create_experiment(args: dict) -> dict:
+async def create_experiment(token: str, args: dict) -> dict:
     """Create and run an experiment."""
     model_map = {"sonnet": "databricks-claude-sonnet-4", "gpt4": "azure-openai-gpt4", "haiku": "databricks-claude-sonnet-4"}
     llm_model = model_map.get(args.get("expr_llm_model", "sonnet"), "databricks-claude-sonnet-4")
@@ -119,53 +128,53 @@ async def create_experiment(args: dict) -> dict:
         payload["pre_cooked_attributes_and_levels_lookup"] = formatted
     
     try:
-        response = await api_request("POST", "/api/v1/experiments", payload)
+        response = await api_request("POST", "/api/v1/experiments", token, payload)
         return {"success": True, "data": response}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-async def get_experiment_status(args: dict) -> dict:
+async def get_experiment_status(token: str, args: dict) -> dict:
     """Get experiment status."""
     try:
-        response = await api_request("GET", f"/api/v1/runs/{args['run_id']}")
+        response = await api_request("GET", f"/api/v1/runs/{args['run_id']}", token)
         return {"success": True, "data": response}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-async def list_experiments(args: dict) -> dict:
+async def list_experiments(token: str, args: dict) -> dict:
     """List all experiments."""
     try:
-        response = await api_request("GET", "/api/v1/runs/all")
+        response = await api_request("GET", "/api/v1/runs/all", token)
         runs = response.get("runs", [])[:args.get("limit", 20)]
         return {"success": True, "data": {"runs": runs, "count": len(runs)}}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-async def get_experiment_results(args: dict) -> dict:
+async def get_experiment_results(token: str, args: dict) -> dict:
     """Get experiment results."""
     try:
-        response = await api_request("GET", f"/api/v1/runs/{args['run_id']}")
+        response = await api_request("GET", f"/api/v1/runs/{args['run_id']}", token)
         return {"success": True, "data": response}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-async def get_amce_data(args: dict) -> dict:
+async def get_amce_data(token: str, args: dict) -> dict:
     """Get AMCE data."""
     try:
-        response = await api_request("GET", f"/api/v3/runs/{args['run_id']}/processed/amce")
+        response = await api_request("GET", f"/api/v3/runs/{args['run_id']}/processed/amce", token)
         return {"success": True, "data": response}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-async def get_causal_insights(args: dict) -> dict:
+async def get_causal_insights(token: str, args: dict) -> dict:
     """Get causal insights."""
     try:
-        response = await api_request("POST", f"/api/v3/runs/{args['run_id']}/generate/causal-sentences", {})
+        response = await api_request("POST", f"/api/v3/runs/{args['run_id']}/generate/causal-sentences", token, {})
         sentences = [item.get("sentence", str(item)) if isinstance(item, dict) else str(item) for item in response] if isinstance(response, list) else []
         return {"success": True, "data": {"causal_statements": sentences}}
     except Exception as e:
@@ -225,7 +234,7 @@ async def health_check(request: Request) -> JSONResponse:
         "server": "subconscious-ai-mcp",
         "version": "1.0.0",
         "tools_count": len(TOOLS),
-        "api_configured": bool(AUTH0_JWT_TOKEN)
+        "auth": "user-provided (include Authorization: Bearer YOUR_TOKEN header)"
     })
 
 
@@ -235,11 +244,19 @@ async def server_info(request: Request) -> JSONResponse:
         "name": "subconscious-ai-mcp",
         "version": "1.0.0",
         "description": "MCP server for Subconscious AI - Run conjoint experiments programmatically",
+        "authentication": {
+            "type": "Bearer token",
+            "header": "Authorization: Bearer YOUR_TOKEN",
+            "get_token": "https://app.subconscious.ai (Settings → Access Token after subscribing)"
+        },
         "tools": list(TOOLS.keys()),
         "endpoints": {
             "health": "/api/health",
             "tools": "/api/tools",
-            "call": "/api/call/{tool_name}"
+            "call": "/api/call/{tool_name} (POST, requires auth)"
+        },
+        "example": {
+            "curl": "curl -X POST https://ghostshell-runi.vercel.app/api/call/list_experiments -H 'Authorization: Bearer YOUR_TOKEN' -H 'Content-Type: application/json' -d '{}'"
         },
         "documentation": "https://github.com/Subconscious-ai/subconscious-ai-mcp-toolkit"
     })
@@ -255,11 +272,19 @@ async def list_tools(request: Request) -> JSONResponse:
 
 
 async def call_tool(request: Request) -> JSONResponse:
-    """Call a specific tool."""
+    """Call a specific tool. Requires Authorization: Bearer TOKEN header."""
     tool_name = request.path_params.get("tool_name")
     
     if tool_name not in TOOLS:
         return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+    
+    # Extract user's token from Authorization header
+    token = extract_token(request)
+    if not token:
+        return JSONResponse({
+            "error": "Authorization required",
+            "message": "Include 'Authorization: Bearer YOUR_TOKEN' header. Get your token from https://app.subconscious.ai after subscribing."
+        }, status_code=401)
     
     try:
         body = await request.json()
@@ -267,7 +292,7 @@ async def call_tool(request: Request) -> JSONResponse:
         body = {}
     
     try:
-        result = await TOOLS[tool_name]["handler"](body)
+        result = await TOOLS[tool_name]["handler"](token, body)
         return JSONResponse(result)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
