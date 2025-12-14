@@ -65,7 +65,7 @@ class TestAPIClient:
     def test_api_client_init(self):
         from server.utils.api_client import APIClient
         client = APIClient()
-        assert client.base_url == "https://api.dev.subconscious.ai"
+        assert client.base_url == "https://api.subconscious.ai"
 
     def test_api_client_custom_url(self):
         from server.utils.api_client import APIClient
