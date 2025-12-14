@@ -4,7 +4,11 @@ from typing import Any, Dict
 
 from mcp.types import Tool as MCPTool
 
-from ..utils.api_client import APIClient
+from ._core.base import EnvironmentTokenProvider
+from ._core.handlers import (
+    generate_personas as _generate_personas,
+    get_experiment_personas as _get_experiment_personas,
+)
 
 
 def generate_personas_tool() -> MCPTool:
@@ -12,50 +16,33 @@ def generate_personas_tool() -> MCPTool:
     return MCPTool(
         name="generate_personas",
         description=(
-            "Generate synthetic personas based on trait specifications. "
+            "Generate synthetic personas based on experiment configuration. "
             "Returns persona definitions that can be used in experiments."
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "levels_per_trait": {
-                    "type": "integer",
-                    "description": "Number of levels per trait",
-                    "default": 3,
-                    "minimum": 2,
-                    "maximum": 5
-                },
-                "trait_keys": {
+                "run_id": {
                     "type": "string",
-                    "description": "Comma-separated list of trait keys (e.g., 'age,gender,education')"
-                }
+                    "description": "The experiment run ID",
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of personas to generate",
+                    "default": 5,
+                    "minimum": 1,
+                    "maximum": 20,
+                },
             },
-            "required": ["trait_keys"]
-        }
+            "required": ["run_id"],
+        },
     )
 
 
 async def handle_generate_personas(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle generate_personas tool execution."""
-    client = APIClient()
-
-    try:
-        params = {
-            "levels_per_trait": arguments.get("levels_per_trait", 3),
-            "trait_keys": arguments["trait_keys"]
-        }
-        response = await client.get("/api/v1/personas", params=params)
-        return {
-            "success": True,
-            "data": response,
-            "message": "Personas generated successfully"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to generate personas"
-        }
+    result = await _generate_personas(arguments, EnvironmentTokenProvider())
+    return result.to_dict()
 
 
 def get_experiment_personas_tool() -> MCPTool:
@@ -71,30 +58,15 @@ def get_experiment_personas_tool() -> MCPTool:
             "properties": {
                 "run_id": {
                     "type": "string",
-                    "description": "The experiment run ID"
+                    "description": "The experiment run ID",
                 }
             },
-            "required": ["run_id"]
-        }
+            "required": ["run_id"],
+        },
     )
 
 
 async def handle_get_experiment_personas(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_experiment_personas tool execution."""
-    client = APIClient()
-    run_id = arguments["run_id"]
-
-    try:
-        response = await client.get(f"/api/v1/experiments/{run_id}/personas")
-        return {
-            "success": True,
-            "data": response,
-            "message": f"Personas retrieved for experiment {run_id}"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Failed to get personas for experiment {run_id}"
-        }
-
+    result = await _get_experiment_personas(arguments, EnvironmentTokenProvider())
+    return result.to_dict()

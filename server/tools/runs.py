@@ -4,7 +4,12 @@ from typing import Any, Dict
 
 from mcp.types import Tool as MCPTool
 
-from ..utils.api_client import APIClient
+from ._core.base import EnvironmentTokenProvider
+from ._core.handlers import (
+    get_run_artifacts as _get_run_artifacts,
+    get_run_details as _get_run_details,
+    update_run_config as _update_run_config,
+)
 
 
 def get_run_details_tool() -> MCPTool:
@@ -20,32 +25,18 @@ def get_run_details_tool() -> MCPTool:
             "properties": {
                 "run_id": {
                     "type": "string",
-                    "description": "The experiment run ID"
+                    "description": "The experiment run ID",
                 }
             },
-            "required": ["run_id"]
-        }
+            "required": ["run_id"],
+        },
     )
 
 
 async def handle_get_run_details(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_run_details tool execution."""
-    client = APIClient()
-    run_id = arguments["run_id"]
-
-    try:
-        response = await client.get(f"/api/v1/runs/{run_id}")
-        return {
-            "success": True,
-            "data": response,
-            "message": f"Run details retrieved for {run_id}"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Failed to get run details for {run_id}"
-        }
+    result = await _get_run_details(arguments, EnvironmentTokenProvider())
+    return result.to_dict()
 
 
 def get_run_artifacts_tool() -> MCPTool:
@@ -61,48 +52,24 @@ def get_run_artifacts_tool() -> MCPTool:
             "properties": {
                 "run_id": {
                     "type": "string",
-                    "description": "The experiment run ID"
+                    "description": "The experiment run ID",
                 },
                 "artifact_type": {
                     "type": "string",
                     "description": "Filter by artifact type",
                     "enum": ["csv", "image", "json", "all"],
-                    "default": "all"
-                }
+                    "default": "all",
+                },
             },
-            "required": ["run_id"]
-        }
+            "required": ["run_id"],
+        },
     )
 
 
 async def handle_get_run_artifacts(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_run_artifacts tool execution."""
-    client = APIClient()
-    run_id = arguments["run_id"]
-
-    try:
-        # Use v3 API for artifacts
-        response = await client.get(f"/api/v3/runs/{run_id}/artifacts")
-
-        # Also include artifacts from run details
-        run_details = await client.get(f"/api/v1/runs/{run_id}")
-        artifacts_list = run_details.get("run_details", {}).get("configs", {}).get("artifacts", [])
-
-        return {
-            "success": True,
-            "data": {
-                "artifacts": response,
-                "artifact_files": artifacts_list,
-                "files": run_details.get("files", [])
-            },
-            "message": f"Artifacts retrieved for run {run_id}"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Failed to get artifacts for run {run_id}"
-        }
+    result = await _get_run_artifacts(arguments, EnvironmentTokenProvider())
+    return result.to_dict()
 
 
 def update_run_config_tool() -> MCPTool:
@@ -118,38 +85,19 @@ def update_run_config_tool() -> MCPTool:
             "properties": {
                 "run_id": {
                     "type": "string",
-                    "description": "The experiment run ID"
+                    "description": "The experiment run ID",
                 },
-                "config_updates": {
+                "config": {
                     "type": "object",
-                    "description": "Configuration updates to apply"
-                }
+                    "description": "Configuration updates to apply",
+                },
             },
-            "required": ["run_id", "config_updates"]
-        }
+            "required": ["run_id"],
+        },
     )
 
 
 async def handle_update_run_config(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle update_run_config tool execution."""
-    client = APIClient()
-    run_id = arguments["run_id"]
-    config_updates = arguments["config_updates"]
-
-    try:
-        response = await client.put(
-            f"/api/v1/runs/{run_id}/config",
-            json=config_updates
-        )
-        return {
-            "success": True,
-            "data": response,
-            "message": f"Configuration updated for run {run_id}"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": f"Failed to update configuration for run {run_id}"
-        }
-
+    result = await _update_run_config(arguments, EnvironmentTokenProvider())
+    return result.to_dict()

@@ -1,11 +1,20 @@
 """Configuration management for MCP server."""
 
+import logging
 import os
+from typing import List
 
 from dotenv import load_dotenv
 
 # Load .env file
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("subconscious-ai")
 
 
 class MCPConfig:
@@ -18,8 +27,13 @@ class MCPConfig:
         self.auth0_domain: str = os.getenv("AUTH0_DOMAIN", "")
         self.auth0_audience: str = os.getenv("AUTH0_AUDIENCE", "")
         # Try M2M client credentials first, then fall back to regular
-        self.auth0_client_id: str = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_ID") or os.getenv("AUTH0_CLIENT_ID", "")
-        self.auth0_client_secret: str = os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_SECRET") or os.getenv("AUTH0_CLIENT_SECRET", "")
+        self.auth0_client_id: str = (
+            os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_ID") or os.getenv("AUTH0_CLIENT_ID", "")
+        )
+        self.auth0_client_secret: str = (
+            os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_SECRET")
+            or os.getenv("AUTH0_CLIENT_SECRET", "")
+        )
         # Direct JWT token (optional)
         self.auth0_jwt_token = os.getenv("AUTH0_JWT_TOKEN")
 
@@ -34,6 +48,24 @@ class MCPConfig:
         self.request_timeout = 300
         self.max_retries = 3
         self.retry_delay = 1.0
+
+        # CORS Configuration
+        cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
+        if cors_origins_env:
+            self.cors_allowed_origins: List[str] = [
+                origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
+            ]
+        else:
+            # Default origins for production
+            self.cors_allowed_origins = [
+                "https://app.subconscious.ai",
+                "https://holodeck.subconscious.ai",
+                "https://*.vercel.app",
+            ]
+
+        # Development mode allows all origins
+        if os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1", "yes"):
+            self.cors_allowed_origins = ["*"]
 
 
 # Global configuration instance

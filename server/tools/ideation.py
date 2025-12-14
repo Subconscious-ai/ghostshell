@@ -1,14 +1,20 @@
-"""MCP tools for ideation workflow - causality check, moderation, and attribute/level generation."""
+"""MCP tools for ideation workflow - causality check and attribute/level generation."""
 
 from typing import Any, Dict
 
 from mcp.types import Tool as MCPTool
 
-from ..utils.api_client import APIClient
+from ._core.base import EnvironmentTokenProvider
+from ._core.handlers import (
+    check_causality as _check_causality,
+    generate_attributes_levels as _generate_attributes_levels,
+)
+
 
 # =============================================================================
 # STEP 1: Check Causality
 # =============================================================================
+
 
 def check_causality_tool() -> MCPTool:
     """Check if a research question is causal."""
@@ -25,55 +31,30 @@ def check_causality_tool() -> MCPTool:
             "properties": {
                 "why_prompt": {
                     "type": "string",
-                    "description": "The research question to check for causality"
+                    "description": "The research question to check for causality",
                 },
                 "llm_model": {
                     "type": "string",
                     "description": "LLM model to use for analysis",
                     "enum": ["gpt4", "sonnet", "haiku"],
-                    "default": "sonnet"
-                }
+                    "default": "sonnet",
+                },
             },
-            "required": ["why_prompt"]
-        }
+            "required": ["why_prompt"],
+        },
     )
 
 
 async def handle_check_causality(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle check_causality tool execution."""
-    client = APIClient()
-
-    # Map simple model names to actual enum values
-    model_map = {
-        "sonnet": "databricks-claude-sonnet-4",
-        "gpt4": "azure-openai-gpt4",
-        "haiku": "databricks-claude-sonnet-4"  # fallback
-    }
-    llm_model = model_map.get(arguments.get("llm_model", "sonnet"), "databricks-claude-sonnet-4")
-
-    try:
-        response = await client.post("/api/v1/copilot/check-causality", json={
-            "why_prompt": arguments["why_prompt"],
-            "llm_model": llm_model
-        })
-
-        is_causal = response.get("is_causal", False)
-        return {
-            "success": True,
-            "data": response,
-            "message": f"Question is {'causal ✓' if is_causal else 'NOT causal - see suggestions'}"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to check causality"
-        }
+    result = await _check_causality(arguments, EnvironmentTokenProvider())
+    return result.to_dict()
 
 
 # =============================================================================
 # STEP 2: Generate Attributes and Levels
 # =============================================================================
+
 
 def generate_attributes_levels_tool() -> MCPTool:
     """Generate attributes and levels for a conjoint experiment."""
@@ -90,78 +71,45 @@ def generate_attributes_levels_tool() -> MCPTool:
             "properties": {
                 "why_prompt": {
                     "type": "string",
-                    "description": "The research question (must be causal)"
+                    "description": "The research question (must be causal)",
                 },
                 "country": {
                     "type": "string",
                     "description": "Target country for the experiment",
-                    "default": "United States"
+                    "default": "United States",
                 },
                 "year": {
                     "type": "string",
                     "description": "Year context for the experiment",
-                    "default": "2024"
+                    "default": "2024",
                 },
                 "attribute_count": {
                     "type": "integer",
                     "description": "Number of attributes to generate (2-10)",
                     "default": 5,
                     "minimum": 2,
-                    "maximum": 10
+                    "maximum": 10,
                 },
                 "level_count": {
                     "type": "integer",
                     "description": "Number of levels per attribute (2-10)",
                     "default": 4,
                     "minimum": 2,
-                    "maximum": 10
+                    "maximum": 10,
                 },
                 "llm_model": {
                     "type": "string",
                     "description": "LLM model to use",
                     "enum": ["gpt4", "sonnet", "haiku"],
-                    "default": "sonnet"
-                }
+                    "default": "sonnet",
+                },
             },
-            "required": ["why_prompt"]
-        }
+            "required": ["why_prompt"],
+        },
     )
 
 
 async def handle_generate_attributes_levels(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle generate_attributes_levels tool execution."""
-    client = APIClient()
-
-    # Map simple model names to actual enum values
-    model_map = {
-        "sonnet": "databricks-claude-sonnet-4",
-        "gpt4": "azure-openai-gpt4",
-        "haiku": "databricks-claude-sonnet-4"
-    }
-    llm_model = model_map.get(arguments.get("llm_model", "sonnet"), "databricks-claude-sonnet-4")
-
-    try:
-        # Note: attributes-levels endpoint is at root of v1, no prefix
-        response = await client.post("/api/v1/attributes-levels-claude", json={
-            "why_prompt": arguments["why_prompt"],
-            "country": arguments.get("country", "United States"),
-            "year": arguments.get("year", "2024"),
-            "attribute_count": arguments.get("attribute_count", 5),
-            "level_count": arguments.get("level_count", 4),
-            "llm_model": llm_model
-        })
-
-        # Response is a list of attributes directly
-        attrs = response if isinstance(response, list) else response.get("attributes_levels", [])
-        return {
-            "success": True,
-            "data": {"attributes_levels": attrs},
-            "message": f"Generated {len(attrs)} attributes with levels"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to generate attributes and levels"
-        }
-
+    result = await _generate_attributes_levels(arguments, EnvironmentTokenProvider())
+    return result.to_dict()
