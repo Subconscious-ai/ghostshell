@@ -50,7 +50,7 @@ Add to your MCP config:
       "args": ["/path/to/server/main.py"],
       "env": {
         "AUTH0_JWT_TOKEN": "your_token",
-        "API_BASE_URL": "https://api.dev.subconscious.ai"
+        "API_BASE_URL": "https://api.subconscious.ai"
       }
     }
   }

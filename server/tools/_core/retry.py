@@ -3,13 +3,14 @@
 import asyncio
 import logging
 from functools import wraps
-from typing import Callable, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, ParamSpec, Tuple, Type, TypeVar
 
 from .exceptions import NetworkError, RateLimitError, ServerError
 
 logger = logging.getLogger("subconscious-ai")
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 # Exceptions that should trigger a retry
 RETRYABLE_ERRORS: Tuple[Type[Exception], ...] = (
@@ -23,7 +24,7 @@ def with_retry(
     max_retries: int = 3,
     base_delay: float = 1.0,
     exponential: bool = True,
-):
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """
     Retry decorator with exponential backoff.
 
@@ -36,9 +37,9 @@ def with_retry(
         Decorated async function with retry logic
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             last_exception: Exception | None = None
 
             for attempt in range(max_retries + 1):

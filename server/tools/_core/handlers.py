@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import httpx
 
@@ -21,7 +21,7 @@ from .retry import with_retry
 logger = logging.getLogger("subconscious-ai")
 
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dev.subconscious.ai")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
 REQUEST_TIMEOUT = 300
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0
@@ -101,7 +101,7 @@ async def _api_request(
                 raise ServerError(f"Backend error: {response.status_code}")
 
             response.raise_for_status()
-            return response.json()
+            return cast(Dict[str, Any], response.json())
 
     except httpx.ConnectError as e:
         logger.error(f"Connection error: {e}")
@@ -570,7 +570,7 @@ async def get_causal_insights(
             token_provider,
             {},
         )
-        sentences = (
+        sentences: list[str] = (
             [
                 item.get("sentence", str(item)) if isinstance(item, dict) else str(item)
                 for item in response

@@ -42,7 +42,7 @@ logger = logging.getLogger("subconscious-ai")
 # Configuration
 # =============================================================================
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dev.subconscious.ai")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
 SERVER_NAME = "subconscious-ai"
 SERVER_VERSION = "1.0.0"
 

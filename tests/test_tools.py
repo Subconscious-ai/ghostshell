@@ -66,7 +66,7 @@ class TestAPIClient:
         from server.utils.api_client import APIClient
         client = APIClient()
         # Default is dev URL from environment or config
-        assert client.base_url == "https://api.dev.subconscious.ai"
+        assert client.base_url == "https://api.subconscious.ai"
 
     def test_api_client_custom_url(self):
         from server.utils.api_client import APIClient
