@@ -63,9 +63,12 @@ class TestAPIClient:
     """Test API client."""
 
     def test_api_client_init(self):
+        import os
         from server.utils.api_client import APIClient
         client = APIClient()
-        assert client.base_url == "https://api.dev.subconscious.ai"
+        # Should use env var if set, otherwise default to prod URL
+        expected = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
+        assert client.base_url == expected
 
     def test_api_client_custom_url(self):
         from server.utils.api_client import APIClient

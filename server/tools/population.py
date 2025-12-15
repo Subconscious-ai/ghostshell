@@ -4,7 +4,13 @@ from typing import Any, Dict
 
 from mcp.types import Tool as MCPTool
 
-from ..utils.api_client import APIClient
+from ._core.base import EnvironmentTokenProvider
+from ._core.handlers import (
+    get_population_stats as _get_population_stats,
+)
+from ._core.handlers import (
+    validate_population as _validate_population,
+)
 
 
 def validate_population_tool() -> MCPTool:
@@ -21,47 +27,21 @@ def validate_population_tool() -> MCPTool:
                 "country": {
                     "type": "string",
                     "description": "Target country (e.g., 'United States')",
-                    "default": "United States"
+                    "default": "United States of America (USA)",
                 },
-                "state": {
-                    "type": "string",
-                    "description": "Target state (optional)",
-                    "default": ""
+                "target_population": {
+                    "type": "object",
+                    "description": "Target population demographics configuration",
                 },
-                "year": {
-                    "type": "string",
-                    "description": "Year for census data",
-                    "default": "2023"
-                },
-                "sample_size": {
-                    "type": "integer",
-                    "description": "Desired sample size",
-                    "minimum": 100,
-                    "maximum": 10000
-                }
             },
-            "required": ["country"]
-        }
+        },
     )
 
 
 async def handle_validate_population(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle validate_population tool execution."""
-    client = APIClient()
-
-    try:
-        response = await client.post("/api/v1/populations/validate", json=arguments)
-        return {
-            "success": True,
-            "data": response,
-            "message": "Population validation completed"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to validate population"
-        }
+    result = await _validate_population(arguments, EnvironmentTokenProvider())
+    return result.to_dict()
 
 
 def get_population_stats_tool() -> MCPTool:
@@ -78,41 +58,14 @@ def get_population_stats_tool() -> MCPTool:
                 "country": {
                     "type": "string",
                     "description": "Target country",
-                    "default": "United States"
+                    "default": "United States of America (USA)",
                 },
-                "state": {
-                    "type": "string",
-                    "description": "Target state (optional)",
-                    "default": ""
-                },
-                "year": {
-                    "type": "string",
-                    "description": "Year for census data",
-                    "default": "2023"
-                }
             },
-            "required": ["country"]
-        }
+        },
     )
 
 
 async def handle_get_population_stats(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Handle get_population_stats tool execution."""
-    client = APIClient()
-
-    try:
-        # This would need to be implemented based on actual API endpoint
-        # For now, using validate endpoint as proxy
-        response = await client.post("/api/v1/populations/validate", json=arguments)
-        return {
-            "success": True,
-            "data": response,
-            "message": "Population statistics retrieved"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to get population statistics"
-        }
-
+    result = await _get_population_stats(arguments, EnvironmentTokenProvider())
+    return result.to_dict()

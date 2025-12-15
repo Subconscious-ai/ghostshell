@@ -15,8 +15,10 @@ External users add to ~/.cursor/mcp.json:
 
 import asyncio
 import json
+import logging
 import os
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -28,12 +30,44 @@ from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Route
 
 # =============================================================================
+# Logging Configuration
+# =============================================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("subconscious-ai")
+
+# =============================================================================
 # Configuration
 # =============================================================================
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dev.subconscious.ai")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
 SERVER_NAME = "subconscious-ai"
 SERVER_VERSION = "1.0.0"
+
+# CORS Configuration
+# Note: Starlette CORSMiddleware doesn't support wildcards in origins list.
+# Use allow_origin_regex for pattern matching.
+CORS_ORIGINS_ENV = os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOW_ALL = os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1", "yes")
+
+if CORS_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS: List[str] = [o.strip() for o in CORS_ORIGINS_ENV.split(",") if o.strip()]
+    CORS_ORIGIN_REGEX: Optional[str] = None
+elif CORS_ALLOW_ALL:
+    CORS_ALLOWED_ORIGINS = ["*"]
+    CORS_ORIGIN_REGEX = None
+else:
+    # Default: explicit production origins + regex for dev/preview
+    CORS_ALLOWED_ORIGINS = [
+        "https://app.subconscious.ai",
+        "https://holodeck.subconscious.ai",
+        "https://ghostshell-runi.vercel.app",
+    ]
+    # Regex to match Vercel preview deployments and localhost
+    CORS_ORIGIN_REGEX = r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+"
 
 
 # =============================================================================
@@ -41,11 +75,23 @@ SERVER_VERSION = "1.0.0"
 # =============================================================================
 
 def extract_token(request: Request) -> Optional[str]:
-    """Extract JWT token from Authorization header or query param."""
+    """Extract JWT token from Authorization header or query param.
+
+    Note: Query param tokens are deprecated. Prefer Authorization header.
+    """
+    # Prefer Authorization header
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         return auth_header[7:]
-    return request.query_params.get("token")
+
+    # Fallback to query param (deprecated)
+    query_token = request.query_params.get("token")
+    if query_token:
+        logger.warning(
+            "Token passed via query param is deprecated. "
+            "Use Authorization header instead for better security."
+        )
+    return query_token
 
 
 # =============================================================================
@@ -121,7 +167,7 @@ async def create_experiment(token: str, args: dict) -> dict:
         "expr_llm_model": llm_model,
         "experiment_type": "conjoint",
         "confidence_level": args.get("confidence_level", "Low"),
-        "year": "2025",
+        "year": str(datetime.now().year),
         "target_population": {
             "age": [18, 75],
             "gender": ["Male", "Female"],
@@ -601,593 +647,21 @@ async def call_tool_endpoint(request: Request) -> JSONResponse:
 # Application
 # =============================================================================
 
-middleware = [
-    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-]
+# Build CORS middleware config
+# Note: allow_credentials=True cannot be used with allow_origins=["*"] per CORS spec
+_allow_credentials = "*" not in CORS_ALLOWED_ORIGINS
 
-app = Starlette(
-    routes=[
-        Route("/", endpoint=server_info),
-        Route("/api", endpoint=server_info),
-        Route("/api/health", endpoint=health_check),
-        Route("/api/tools", endpoint=list_tools_endpoint),
-        Route("/api/sse", endpoint=sse_endpoint),
-        Route("/api/sse/message", endpoint=sse_message_endpoint, methods=["POST"]),
-        Route("/api/call/{tool_name}", endpoint=call_tool_endpoint, methods=["POST"]),
-    ],
-    middleware=middleware
-)
-
-
-async def handle_mcp_request(method: str, params: dict, msg_id: Any, token: str) -> dict:
-    """Handle MCP JSON-RPC requests."""
-
-    if method == "initialize":
-        return {
-            "jsonrpc": "2.0",
-            "id": msg_id,
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION}
-            }
-        }
-
-    elif method == "tools/list":
-        tools_list = [
-            {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-            for name, info in TOOLS.items()
-        ]
-        return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": tools_list}}
-
-    elif method == "tools/call":
-        tool_name = params.get("name")
-        arguments = params.get("arguments", {})
-
-        if tool_name not in TOOLS:
-            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}}
-
-        try:
-            result = await TOOLS[tool_name]["handler"](token, arguments)
-            return {
-                "jsonrpc": "2.0",
-                "id": msg_id,
-                "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]}
-            }
-        except Exception as e:
-            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32000, "message": str(e)}}
-
-    elif method == "notifications/initialized":
-        return None  # No response for notifications
-
-    else:
-        return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
-
-
-async def sse_endpoint(request: Request):
-    """SSE endpoint for MCP protocol - Cursor/Claude connect here."""
-    token = extract_token(request)
-    if not token:
-        return JSONResponse({"error": "Token required. Add ?token=YOUR_TOKEN to URL"}, status_code=401)
-
-    session_id = str(uuid.uuid4())
-    SESSIONS[session_id] = {"token": token, "responses": asyncio.Queue()}
-
-    async def event_stream():
-        # Send endpoint info for message posting
-        endpoint_event = f"event: endpoint\ndata: /api/sse/message?session_id={session_id}\n\n"
-        yield endpoint_event
-
-        try:
-            while True:
-                try:
-                    # Wait for responses with timeout
-                    response = await asyncio.wait_for(
-                        SESSIONS[session_id]["responses"].get(),
-                        timeout=30
-                    )
-                    if response:
-                        yield f"event: message\ndata: {json.dumps(response)}\n\n"
-                except asyncio.TimeoutError:
-                    # Send keepalive
-                    yield ": keepalive\n\n"
-        except Exception:
-            pass
-        finally:
-            SESSIONS.pop(session_id, None)
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
-
-
-async def sse_message_endpoint(request: Request):
-    """Handle POST messages from MCP clients."""
-    session_id = request.query_params.get("session_id")
-
-    if not session_id or session_id not in SESSIONS:
-        return JSONResponse({"error": "Invalid session"}, status_code=400)
-
-    session = SESSIONS[session_id]
-
-    try:
-        message = await request.json()
-        response = await handle_mcp_request(
-            message.get("method"),
-            message.get("params", {}),
-            message.get("id"),
-            session["token"]
-        )
-
-        if response:
-            await session["responses"].put(response)
-
-        return JSONResponse({"status": "ok"})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
-# =============================================================================
-# REST API Endpoints
-# =============================================================================
-
-async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({
-        "status": "healthy",
-        "server": SERVER_NAME,
-        "version": SERVER_VERSION,
-        "tools": len(TOOLS)
-    })
-
-
-async def server_info(request: Request) -> JSONResponse:
-    return JSONResponse({
-        "name": SERVER_NAME,
-        "version": SERVER_VERSION,
-        "description": "MCP server for Subconscious AI conjoint experiments",
-        "mcp_endpoint": "/api/sse?token=YOUR_TOKEN",
-        "tools": list(TOOLS.keys()),
-        "setup": {
-            "cursor": "Add to ~/.cursor/mcp.json",
-            "config": {
-                "mcpServers": {
-                    "subconscious-ai": {
-                        "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
-                    }
-                }
-            }
-        }
-    })
-
-
-async def list_tools_endpoint(request: Request) -> JSONResponse:
-    tools_list = [
-        {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-        for name, info in TOOLS.items()
-    ]
-    return JSONResponse({"tools": tools_list, "count": len(tools_list)})
-
-
-async def call_tool_endpoint(request: Request) -> JSONResponse:
-    tool_name = request.path_params.get("tool_name")
-    if tool_name not in TOOLS:
-        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-
-    token = extract_token(request)
-    if not token:
-        return JSONResponse({"error": "Authorization required"}, status_code=401)
-
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    result = await TOOLS[tool_name]["handler"](token, body)
-    return JSONResponse(result)
-
-
-# =============================================================================
-# Application
-# =============================================================================
+_cors_config: Dict[str, Any] = {
+    "allow_origins": CORS_ALLOWED_ORIGINS,
+    "allow_methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Authorization", "Content-Type"],
+    "allow_credentials": _allow_credentials,
+}
+if CORS_ORIGIN_REGEX:
+    _cors_config["allow_origin_regex"] = CORS_ORIGIN_REGEX
 
 middleware = [
-    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-]
-
-app = Starlette(
-    routes=[
-        Route("/", endpoint=server_info),
-        Route("/api", endpoint=server_info),
-        Route("/api/health", endpoint=health_check),
-        Route("/api/tools", endpoint=list_tools_endpoint),
-        Route("/api/sse", endpoint=sse_endpoint),
-        Route("/api/sse/message", endpoint=sse_message_endpoint, methods=["POST"]),
-        Route("/api/call/{tool_name}", endpoint=call_tool_endpoint, methods=["POST"]),
-    ],
-    middleware=middleware
-)
-
-
-async def handle_mcp_request(method: str, params: dict, msg_id: Any, token: str) -> dict:
-    """Handle MCP JSON-RPC requests."""
-
-    if method == "initialize":
-        return {
-            "jsonrpc": "2.0",
-            "id": msg_id,
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION}
-            }
-        }
-
-    elif method == "tools/list":
-        tools_list = [
-            {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-            for name, info in TOOLS.items()
-        ]
-        return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": tools_list}}
-
-    elif method == "tools/call":
-        tool_name = params.get("name")
-        arguments = params.get("arguments", {})
-
-        if tool_name not in TOOLS:
-            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}}
-
-        try:
-            result = await TOOLS[tool_name]["handler"](token, arguments)
-            return {
-                "jsonrpc": "2.0",
-                "id": msg_id,
-                "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]}
-            }
-        except Exception as e:
-            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32000, "message": str(e)}}
-
-    elif method == "notifications/initialized":
-        return None  # No response for notifications
-
-    else:
-        return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
-
-
-async def sse_endpoint(request: Request):
-    """SSE endpoint for MCP protocol - Cursor/Claude connect here."""
-    token = extract_token(request)
-    if not token:
-        return JSONResponse({"error": "Token required. Add ?token=YOUR_TOKEN to URL"}, status_code=401)
-
-    session_id = str(uuid.uuid4())
-    SESSIONS[session_id] = {"token": token, "responses": asyncio.Queue()}
-
-    async def event_stream():
-        # Send endpoint info for message posting
-        endpoint_event = f"event: endpoint\ndata: /api/sse/message?session_id={session_id}\n\n"
-        yield endpoint_event
-
-        try:
-            while True:
-                try:
-                    # Wait for responses with timeout
-                    response = await asyncio.wait_for(
-                        SESSIONS[session_id]["responses"].get(),
-                        timeout=30
-                    )
-                    if response:
-                        yield f"event: message\ndata: {json.dumps(response)}\n\n"
-                except asyncio.TimeoutError:
-                    # Send keepalive
-                    yield ": keepalive\n\n"
-        except Exception:
-            pass
-        finally:
-            SESSIONS.pop(session_id, None)
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
-
-
-async def sse_message_endpoint(request: Request):
-    """Handle POST messages from MCP clients."""
-    session_id = request.query_params.get("session_id")
-
-    if not session_id or session_id not in SESSIONS:
-        return JSONResponse({"error": "Invalid session"}, status_code=400)
-
-    session = SESSIONS[session_id]
-
-    try:
-        message = await request.json()
-        response = await handle_mcp_request(
-            message.get("method"),
-            message.get("params", {}),
-            message.get("id"),
-            session["token"]
-        )
-
-        if response:
-            await session["responses"].put(response)
-
-        return JSONResponse({"status": "ok"})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
-# =============================================================================
-# REST API Endpoints
-# =============================================================================
-
-async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({
-        "status": "healthy",
-        "server": SERVER_NAME,
-        "version": SERVER_VERSION,
-        "tools": len(TOOLS)
-    })
-
-
-async def server_info(request: Request) -> JSONResponse:
-    return JSONResponse({
-        "name": SERVER_NAME,
-        "version": SERVER_VERSION,
-        "description": "MCP server for Subconscious AI conjoint experiments",
-        "mcp_endpoint": "/api/sse?token=YOUR_TOKEN",
-        "tools": list(TOOLS.keys()),
-        "setup": {
-            "cursor": "Add to ~/.cursor/mcp.json",
-            "config": {
-                "mcpServers": {
-                    "subconscious-ai": {
-                        "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
-                    }
-                }
-            }
-        }
-    })
-
-
-async def list_tools_endpoint(request: Request) -> JSONResponse:
-    tools_list = [
-        {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-        for name, info in TOOLS.items()
-    ]
-    return JSONResponse({"tools": tools_list, "count": len(tools_list)})
-
-
-async def call_tool_endpoint(request: Request) -> JSONResponse:
-    tool_name = request.path_params.get("tool_name")
-    if tool_name not in TOOLS:
-        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-
-    token = extract_token(request)
-    if not token:
-        return JSONResponse({"error": "Authorization required"}, status_code=401)
-
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    result = await TOOLS[tool_name]["handler"](token, body)
-    return JSONResponse(result)
-
-
-# =============================================================================
-# Application
-# =============================================================================
-
-middleware = [
-    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-]
-
-app = Starlette(
-    routes=[
-        Route("/", endpoint=server_info),
-        Route("/api", endpoint=server_info),
-        Route("/api/health", endpoint=health_check),
-        Route("/api/tools", endpoint=list_tools_endpoint),
-        Route("/api/sse", endpoint=sse_endpoint),
-        Route("/api/sse/message", endpoint=sse_message_endpoint, methods=["POST"]),
-        Route("/api/call/{tool_name}", endpoint=call_tool_endpoint, methods=["POST"]),
-    ],
-    middleware=middleware
-)
-
-
-async def handle_mcp_request(method: str, params: dict, msg_id: Any, token: str) -> dict:
-    """Handle MCP JSON-RPC requests."""
-
-    if method == "initialize":
-        return {
-            "jsonrpc": "2.0",
-            "id": msg_id,
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION}
-            }
-        }
-
-    elif method == "tools/list":
-        tools_list = [
-            {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-            for name, info in TOOLS.items()
-        ]
-        return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": tools_list}}
-
-    elif method == "tools/call":
-        tool_name = params.get("name")
-        arguments = params.get("arguments", {})
-
-        if tool_name not in TOOLS:
-            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}}
-
-        try:
-            result = await TOOLS[tool_name]["handler"](token, arguments)
-            return {
-                "jsonrpc": "2.0",
-                "id": msg_id,
-                "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2, default=str)}]}
-            }
-        except Exception as e:
-            return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32000, "message": str(e)}}
-
-    elif method == "notifications/initialized":
-        return None  # No response for notifications
-
-    else:
-        return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
-
-
-async def sse_endpoint(request: Request):
-    """SSE endpoint for MCP protocol - Cursor/Claude connect here."""
-    token = extract_token(request)
-    if not token:
-        return JSONResponse({"error": "Token required. Add ?token=YOUR_TOKEN to URL"}, status_code=401)
-
-    session_id = str(uuid.uuid4())
-    SESSIONS[session_id] = {"token": token, "responses": asyncio.Queue()}
-
-    async def event_stream():
-        # Send endpoint info for message posting
-        endpoint_event = f"event: endpoint\ndata: /api/sse/message?session_id={session_id}\n\n"
-        yield endpoint_event
-
-        try:
-            while True:
-                try:
-                    # Wait for responses with timeout
-                    response = await asyncio.wait_for(
-                        SESSIONS[session_id]["responses"].get(),
-                        timeout=30
-                    )
-                    if response:
-                        yield f"event: message\ndata: {json.dumps(response)}\n\n"
-                except asyncio.TimeoutError:
-                    # Send keepalive
-                    yield ": keepalive\n\n"
-        except Exception:
-            pass
-        finally:
-            SESSIONS.pop(session_id, None)
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
-
-
-async def sse_message_endpoint(request: Request):
-    """Handle POST messages from MCP clients."""
-    session_id = request.query_params.get("session_id")
-
-    if not session_id or session_id not in SESSIONS:
-        return JSONResponse({"error": "Invalid session"}, status_code=400)
-
-    session = SESSIONS[session_id]
-
-    try:
-        message = await request.json()
-        response = await handle_mcp_request(
-            message.get("method"),
-            message.get("params", {}),
-            message.get("id"),
-            session["token"]
-        )
-
-        if response:
-            await session["responses"].put(response)
-
-        return JSONResponse({"status": "ok"})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
-# =============================================================================
-# REST API Endpoints
-# =============================================================================
-
-async def health_check(request: Request) -> JSONResponse:
-    return JSONResponse({
-        "status": "healthy",
-        "server": SERVER_NAME,
-        "version": SERVER_VERSION,
-        "tools": len(TOOLS)
-    })
-
-
-async def server_info(request: Request) -> JSONResponse:
-    return JSONResponse({
-        "name": SERVER_NAME,
-        "version": SERVER_VERSION,
-        "description": "MCP server for Subconscious AI conjoint experiments",
-        "mcp_endpoint": "/api/sse?token=YOUR_TOKEN",
-        "tools": list(TOOLS.keys()),
-        "setup": {
-            "cursor": "Add to ~/.cursor/mcp.json",
-            "config": {
-                "mcpServers": {
-                    "subconscious-ai": {
-                        "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
-                    }
-                }
-            }
-        }
-    })
-
-
-async def list_tools_endpoint(request: Request) -> JSONResponse:
-    tools_list = [
-        {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-        for name, info in TOOLS.items()
-    ]
-    return JSONResponse({"tools": tools_list, "count": len(tools_list)})
-
-
-async def call_tool_endpoint(request: Request) -> JSONResponse:
-    tool_name = request.path_params.get("tool_name")
-    if tool_name not in TOOLS:
-        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
-
-    token = extract_token(request)
-    if not token:
-        return JSONResponse({"error": "Authorization required"}, status_code=401)
-
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    result = await TOOLS[tool_name]["handler"](token, body)
-    return JSONResponse(result)
-
-
-# =============================================================================
-# Application
-# =============================================================================
-
-middleware = [
-    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    Middleware(CORSMiddleware, **_cors_config)
 ]
 
 app = Starlette(

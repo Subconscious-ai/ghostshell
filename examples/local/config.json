@@ -6,7 +6,7 @@
       "cwd": "/path/to/subconscious-ai-mcp-toolkit",
       "env": {
         "AUTH0_JWT_TOKEN": "YOUR_TOKEN_HERE",
-        "API_BASE_URL": "https://api.dev.subconscious.ai"
+        "API_BASE_URL": "https://api.subconscious.ai"
       }
     }
   }
