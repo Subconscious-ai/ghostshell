@@ -50,22 +50,31 @@ class MCPConfig:
         self.retry_delay = 1.0
 
         # CORS Configuration
+        # Note: Starlette CORSMiddleware doesn't support wildcards in origins list.
+        # Use cors_origin_regex for pattern matching.
         cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
+        cors_allow_all = os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1", "yes")
+
         if cors_origins_env:
             self.cors_allowed_origins: List[str] = [
                 origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
             ]
+            self.cors_origin_regex: str | None = None
+        elif cors_allow_all:
+            self.cors_allowed_origins = ["*"]
+            self.cors_origin_regex = None
         else:
-            # Default origins for production
+            # Default: explicit production origins + regex for dev/preview
             self.cors_allowed_origins = [
                 "https://app.subconscious.ai",
                 "https://holodeck.subconscious.ai",
-                "https://*.vercel.app",
+                "https://ghostshell-runi.vercel.app",
             ]
+            # Regex to match Vercel preview deployments and localhost
+            self.cors_origin_regex = r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+"
 
-        # Development mode allows all origins
-        if os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1", "yes"):
-            self.cors_allowed_origins = ["*"]
+        # Note: allow_credentials=True cannot be used with allow_origins=["*"] per CORS spec
+        self.cors_allow_credentials = "*" not in self.cors_allowed_origins
 
 
 # Global configuration instance

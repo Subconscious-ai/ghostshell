@@ -2,7 +2,9 @@
 
 import logging
 import os
+from datetime import datetime
 from typing import Any, Dict, Optional, cast
+from urllib.parse import urlencode
 
 import httpx
 
@@ -99,6 +101,9 @@ async def _api_request(
                 raise ValidationError(str(error_detail))
             elif response.status_code >= 500:
                 raise ServerError(f"Backend error: {response.status_code}")
+            elif response.status_code >= 400:
+                # Catch-all for unhandled 4xx errors (e.g., 409 Conflict, 408 Timeout)
+                raise ValidationError(f"Request failed: {response.status_code}")
 
             response.raise_for_status()
             return cast(Dict[str, Any], response.json())
@@ -109,6 +114,9 @@ async def _api_request(
     except httpx.TimeoutException as e:
         logger.error(f"Timeout error: {e}")
         raise NetworkError(f"Request timed out after {REQUEST_TIMEOUT}s")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error: {e}")
+        raise ServerError(f"Unexpected HTTP error: {e.response.status_code}")
 
 
 def _handle_error(e: Exception, operation: str) -> ToolResult:
@@ -268,7 +276,7 @@ async def get_population_stats(
         country = args.get("country", "United States of America (USA)")
         response = await _api_request(
             "GET",
-            f"/api/v1/population/stats?country={country}",
+            f"/api/v1/population/stats?{urlencode({'country': country})}",
             token_provider,
         )
         return ToolResult(
@@ -307,7 +315,7 @@ async def create_experiment(
         "expr_llm_model": llm_model,
         "experiment_type": "conjoint",
         "confidence_level": args.get("confidence_level", "Low"),
-        "year": "2025",
+        "year": str(datetime.now().year),
         "target_population": {
             "age": [18, 75],
             "gender": ["Male", "Female"],
@@ -507,10 +515,12 @@ async def generate_personas(
             token_provider,
             {"count": count},
         )
+        # Use actual count from response if available
+        actual_count = len(response) if isinstance(response, list) else count
         return ToolResult(
             success=True,
             data=response,
-            message=f"Generated {count} personas",
+            message=f"Generated {actual_count} personas",
         )
     except Exception as e:
         return _handle_error(e, "generate personas")

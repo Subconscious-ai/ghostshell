@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -47,20 +48,26 @@ SERVER_NAME = "subconscious-ai"
 SERVER_VERSION = "1.0.0"
 
 # CORS Configuration
+# Note: Starlette CORSMiddleware doesn't support wildcards in origins list.
+# Use allow_origin_regex for pattern matching.
 CORS_ORIGINS_ENV = os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOW_ALL = os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1", "yes")
+
 if CORS_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in CORS_ORIGINS_ENV.split(",") if o.strip()]
-elif os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1", "yes"):
+    CORS_ALLOWED_ORIGINS: List[str] = [o.strip() for o in CORS_ORIGINS_ENV.split(",") if o.strip()]
+    CORS_ORIGIN_REGEX: Optional[str] = None
+elif CORS_ALLOW_ALL:
     CORS_ALLOWED_ORIGINS = ["*"]
+    CORS_ORIGIN_REGEX = None
 else:
-    # Default: allow common development and production origins
+    # Default: explicit production origins + regex for dev/preview
     CORS_ALLOWED_ORIGINS = [
         "https://app.subconscious.ai",
         "https://holodeck.subconscious.ai",
-        "https://*.vercel.app",
-        "http://localhost:*",
-        "http://127.0.0.1:*",
+        "https://ghostshell-runi.vercel.app",
     ]
+    # Regex to match Vercel preview deployments and localhost
+    CORS_ORIGIN_REGEX = r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+"
 
 
 # =============================================================================
@@ -160,7 +167,7 @@ async def create_experiment(token: str, args: dict) -> dict:
         "expr_llm_model": llm_model,
         "experiment_type": "conjoint",
         "confidence_level": args.get("confidence_level", "Low"),
-        "year": "2025",
+        "year": str(datetime.now().year),
         "target_population": {
             "age": [18, 75],
             "gender": ["Male", "Female"],
@@ -640,14 +647,21 @@ async def call_tool_endpoint(request: Request) -> JSONResponse:
 # Application
 # =============================================================================
 
+# Build CORS middleware config
+# Note: allow_credentials=True cannot be used with allow_origins=["*"] per CORS spec
+_allow_credentials = "*" not in CORS_ALLOWED_ORIGINS
+
+_cors_config: Dict[str, Any] = {
+    "allow_origins": CORS_ALLOWED_ORIGINS,
+    "allow_methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Authorization", "Content-Type"],
+    "allow_credentials": _allow_credentials,
+}
+if CORS_ORIGIN_REGEX:
+    _cors_config["allow_origin_regex"] = CORS_ORIGIN_REGEX
+
 middleware = [
-    Middleware(
-        CORSMiddleware,
-        allow_origins=CORS_ALLOWED_ORIGINS,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
-        allow_credentials=True,
-    )
+    Middleware(CORSMiddleware, **_cors_config)
 ]
 
 app = Starlette(
