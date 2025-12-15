@@ -7,9 +7,10 @@ from mcp.types import Tool as MCPTool
 from ._core.base import EnvironmentTokenProvider
 from ._core.handlers import (
     check_causality as _check_causality,
+)
+from ._core.handlers import (
     generate_attributes_levels as _generate_attributes_levels,
 )
-
 
 # =============================================================================
 # STEP 1: Check Causality

@@ -1,6 +1,6 @@
 """Base types and protocols for tool handlers."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, Optional, Protocol
 
 
