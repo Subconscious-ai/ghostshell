@@ -14,7 +14,7 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # Run local MCP server (stdio mode)
-AUTH0_JWT_TOKEN="your_token" python server/main.py
+SUBCONSCIOUS_ACCESS_TOKEN="your_token" python server/main.py
 
 # Run tests
 pytest tests/ -v
@@ -84,7 +84,7 @@ Retry logic automatically retries on `RateLimitError`, `ServerError`, and `Netwo
 
 ## Environment Variables
 
-- `AUTH0_JWT_TOKEN` - Required. Get from app.subconscious.ai Settings
+- `SUBCONSCIOUS_ACCESS_TOKEN` - Required. Get from app.subconscious.ai → Settings → Access Token
 - `API_BASE_URL` - Backend API (default: `https://api.subconscious.ai`, dev: `https://api.dev.subconscious.ai`)
 - `CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
 - `CORS_ALLOW_ALL` - Set to `true` to allow all origins (development only)

@@ -20,7 +20,7 @@ logger = logging.getLogger("subconscious-ai")
 class MCPConfig:
     """MCP server configuration."""
 
-    auth0_jwt_token: str | None
+    access_token: str | None
 
     def __init__(self):
         # Auth0 Configuration
@@ -34,8 +34,10 @@ class MCPConfig:
             os.getenv("SUBCONSCIOUSAI_M2M_CLIENT_SECRET")
             or os.getenv("AUTH0_CLIENT_SECRET", "")
         )
-        # Direct JWT token (optional)
-        self.auth0_jwt_token = os.getenv("AUTH0_JWT_TOKEN")
+        # Access token (try new name first, fall back to old for backward compat)
+        self.access_token = os.getenv("SUBCONSCIOUS_ACCESS_TOKEN") or os.getenv(
+            "AUTH0_JWT_TOKEN"
+        )
 
         # API Configuration
         self.api_base_url = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
@@ -82,10 +84,10 @@ config = MCPConfig()
 
 
 def get_auth_token() -> str:
-    """Get Auth0 JWT token from environment."""
-    token: str | None = config.auth0_jwt_token
+    """Get access token from environment."""
+    token: str | None = config.access_token
     if token is None:
         raise ValueError(
-            "AUTH0_JWT_TOKEN required. Get your token from the browser after logging into holodeck."
+            "SUBCONSCIOUS_ACCESS_TOKEN required. Get your token from app.subconscious.ai → Settings → Access Token"
         )
     return token

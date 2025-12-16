@@ -64,7 +64,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Set environment variables
-export AUTH0_JWT_TOKEN="your_token_here"
+export SUBCONSCIOUS_ACCESS_TOKEN="your_token_here"
 export API_BASE_URL="https://api.subconscious.ai"
 ```
 
@@ -76,7 +76,7 @@ Add to your MCP config:
       "command": "/absolute/path/to/venv/bin/python3",
       "args": ["/absolute/path/to/server/main.py"],
       "env": {
-        "AUTH0_JWT_TOKEN": "your_token",
+        "SUBCONSCIOUS_ACCESS_TOKEN": "your_token",
         "API_BASE_URL": "https://api.subconscious.ai"
       }
     }
