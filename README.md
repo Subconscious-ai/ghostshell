@@ -1,6 +1,6 @@
 # Subconscious AI MCP Server
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![MCP Protocol](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
 
@@ -196,88 +196,9 @@ Configure environment variables in Vercel dashboard:
 
 > ⚠️ Users must provide their own tokens - the server proxies requests to the Subconscious AI backend.
 
-## 🧪 Development
+## 💡 Feature Requests & Support
 
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run linting
-ruff check server/ api/
-
-# Run type checking
-mypy server/ api/
-
-# Run tests
-pytest tests/ -v
-
-# Run local server (stdio mode)
-python server/main.py
-
-# Run local HTTP server (for testing)
-uvicorn api.index:app --host 0.0.0.0 --port 8001 --reload
-```
-
-## 📁 Project Structure
-
-```
-subconscious-ai-mcp/
-├── api/
-│   └── index.py              # Vercel serverless function (SSE + REST)
-├── server/
-│   ├── main.py               # Local MCP server (stdio transport)
-│   ├── config.py             # Configuration management
-│   ├── utils/
-│   │   └── api_client.py     # HTTP client for Subconscious AI API
-│   └── tools/
-│       ├── __init__.py       # Tool exports
-│       ├── ideation.py       # Causality & attribute generation tools
-│       ├── experiments.py    # Experiment creation tools
-│       ├── runs.py           # Run management tools
-│       ├── analytics.py      # Analytics & insights tools
-│       └── _core/
-│           ├── base.py       # Base types (ToolResult, TokenProvider)
-│           ├── exceptions.py # Custom exception hierarchy
-│           ├── handlers.py   # Unified tool handlers
-│           └── retry.py      # Retry decorator with exponential backoff
-├── tests/
-│   ├── test_tools.py         # Tool definition tests
-│   ├── test_handlers.py      # Handler unit tests
-│   ├── test_integration.py   # API integration tests
-│   ├── test_retry.py         # Retry logic tests
-│   └── test_exceptions.py    # Exception tests
-├── examples/
-│   ├── claude/config.json    # Claude Desktop config example
-│   ├── cursor/mcp.json       # Cursor config example
-│   └── local/config.json     # Local testing config
-├── vercel.json               # Vercel deployment config
-├── requirements.txt          # Production dependencies
-├── requirements-dev.txt      # Development dependencies
-└── pyproject.toml            # Project metadata and tool configs
-```
-
-## 🔧 Configuration
-
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `AUTH0_JWT_TOKEN` | (required) | Your Subconscious AI access token |
-| `API_BASE_URL` | `https://api.subconscious.ai` | Backend API URL |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `CORS_ALLOWED_ORIGINS` | (see config) | Comma-separated allowed origins |
-| `CORS_ALLOW_ALL` | `false` | Allow all origins (dev only) |
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`pytest tests/ -v`)
-5. Run linting (`ruff check server/ api/`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+Have a feature request or need help? Email us at **nihar@subconscious.ai**
 
 ## 📚 Resources
 
@@ -288,12 +209,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built on the [Model Context Protocol](https://modelcontextprotocol.io) by Anthropic
-- Conjoint analysis methodology based on established survey research practices
+This software requires an active [Subconscious AI subscription](https://app.subconscious.ai/). See the [LICENSE](LICENSE) file for details.
 
 ---
 
