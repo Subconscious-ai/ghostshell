@@ -206,7 +206,6 @@ Have a feature request or need help? Email us at **nihar@subconscious.ai**
 - [API Documentation](https://subconscious.docs.buildwithfern.com/wiki/get-started/welcome-to-subconscious-ai) — Full API reference
 - [MCP Protocol](https://modelcontextprotocol.io) - Model Context Protocol specification
 - [Conjoint Analysis](https://en.wikipedia.org/wiki/Conjoint_analysis) - Learn about the methodology
-- [![Glama MCP Server](https://glama.ai/mcp/servers/@NehharShah/mcp-subconscios/badge)](https://glama.ai/mcp/servers/@NehharShah/mcp-subconscios)
 
 ## 📄 License
 
