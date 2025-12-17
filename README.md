@@ -203,7 +203,7 @@ Have a feature request or need help? Email us at **nihar@subconscious.ai**
 ## 📚 Resources
 
 - [Subconscious AI Platform](https://app.subconscious.ai) - Create experiments via UI
-- [API Documentation](https://docs.subconscious.ai) - Full API reference
+- [API Documentation]([https://docs.subconscious.ai](https://subconscious.docs.buildwithfern.com/wiki/get-started/welcome-to-subconscious-ai)) - Full API reference
 - [MCP Protocol](https://modelcontextprotocol.io) - Model Context Protocol specification
 - [Conjoint Analysis](https://en.wikipedia.org/wiki/Conjoint_analysis) - Learn about the methodology
 
