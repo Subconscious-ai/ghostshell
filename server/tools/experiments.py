@@ -75,6 +75,12 @@ def create_experiment_tool() -> MCPTool:
                     "enum": ["gpt4", "sonnet", "haiku"],
                     "default": "sonnet",
                 },
+                "confidence_level": {
+                    "type": "string",
+                    "description": "Confidence level for experiment sizing",
+                    "enum": ["Low", "Reasonable", "High"],
+                    "default": "Low",
+                },
             },
             "required": ["why_prompt"],
         },

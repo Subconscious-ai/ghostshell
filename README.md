@@ -53,15 +53,15 @@ No setup required! Add to your MCP client configuration:
 
 ```bash
 # Clone the repository
-git clone https://github.com/Subconscious-ai/subconscious-ai-mcp.git
-cd subconscious-ai-mcp
+git clone https://github.com/Subconscious-ai/ghostshell.git
+cd ghostshell
 
 # Create virtual environment
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # Set environment variables
 export AUTH0_JWT_TOKEN="your_token_here"
@@ -174,7 +174,7 @@ curl -X POST https://ghostshell-runi.vercel.app/api/call/get_experiment_results 
 | `/` | GET | No | Server info and available tools |
 | `/api/health` | GET | No | Health check |
 | `/api/tools` | GET | No | List all tools with schemas |
-| `/api/sse` | GET | Yes | MCP SSE connection (token in query param) |
+| `/api/sse` | GET | Yes | MCP SSE connection (Authorization header preferred; query token fallback) |
 | `/api/call/{tool}` | POST | Yes | Call a tool directly |
 
 ## 🏗️ Self-Hosting on Vercel
@@ -186,8 +186,8 @@ Deploy your own instance for your organization:
 npm i -g vercel
 
 # Clone and deploy
-git clone https://github.com/Subconscious-ai/subconscious-ai-mcp.git
-cd subconscious-ai-mcp
+git clone https://github.com/Subconscious-ai/ghostshell.git
+cd ghostshell
 vercel --prod
 ```
 

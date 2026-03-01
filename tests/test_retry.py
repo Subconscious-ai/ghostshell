@@ -1,7 +1,8 @@
 """Tests for retry decorator."""
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 
 class TestRetryDecorator:
@@ -23,8 +24,8 @@ class TestRetryDecorator:
     @pytest.mark.asyncio
     async def test_retry_on_server_error(self):
         """Test that server errors trigger retries."""
-        from server.tools._core.retry import with_retry
         from server.tools._core.exceptions import ServerError
+        from server.tools._core.retry import with_retry
 
         mock_func = AsyncMock(
             side_effect=[ServerError("500"), ServerError("500"), "success"]
@@ -39,8 +40,8 @@ class TestRetryDecorator:
     @pytest.mark.asyncio
     async def test_retry_on_network_error(self):
         """Test that network errors trigger retries."""
-        from server.tools._core.retry import with_retry
         from server.tools._core.exceptions import NetworkError
+        from server.tools._core.retry import with_retry
 
         mock_func = AsyncMock(side_effect=[NetworkError("timeout"), "success"])
         decorated = with_retry(max_retries=3, base_delay=0.01)(mock_func)
@@ -53,8 +54,8 @@ class TestRetryDecorator:
     @pytest.mark.asyncio
     async def test_retry_on_rate_limit_error(self):
         """Test that rate limit errors trigger retries."""
-        from server.tools._core.retry import with_retry
         from server.tools._core.exceptions import RateLimitError
+        from server.tools._core.retry import with_retry
 
         mock_func = AsyncMock(side_effect=[RateLimitError("429"), "success"])
         decorated = with_retry(max_retries=3, base_delay=0.01)(mock_func)
@@ -67,8 +68,8 @@ class TestRetryDecorator:
     @pytest.mark.asyncio
     async def test_max_retries_exceeded_raises(self):
         """Test that exceeding max retries raises the exception."""
-        from server.tools._core.retry import with_retry
         from server.tools._core.exceptions import NetworkError
+        from server.tools._core.retry import with_retry
 
         mock_func = AsyncMock(side_effect=NetworkError("timeout"))
         decorated = with_retry(max_retries=2, base_delay=0.01)(mock_func)
@@ -81,8 +82,8 @@ class TestRetryDecorator:
     @pytest.mark.asyncio
     async def test_no_retry_on_auth_error(self):
         """Test that authentication errors don't trigger retries."""
-        from server.tools._core.retry import with_retry
         from server.tools._core.exceptions import AuthenticationError
+        from server.tools._core.retry import with_retry
 
         mock_func = AsyncMock(side_effect=AuthenticationError("invalid token"))
         decorated = with_retry(max_retries=3, base_delay=0.01)(mock_func)
@@ -96,8 +97,8 @@ class TestRetryDecorator:
     @pytest.mark.asyncio
     async def test_no_retry_on_validation_error(self):
         """Test that validation errors don't trigger retries."""
-        from server.tools._core.retry import with_retry
         from server.tools._core.exceptions import ValidationError
+        from server.tools._core.retry import with_retry
 
         mock_func = AsyncMock(side_effect=ValidationError("bad input"))
         decorated = with_retry(max_retries=3, base_delay=0.01)(mock_func)

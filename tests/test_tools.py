@@ -64,6 +64,7 @@ class TestAPIClient:
 
     def test_api_client_init(self):
         import os
+
         from server.utils.api_client import APIClient
         client = APIClient()
         # Should use env var if set, otherwise default to prod URL
