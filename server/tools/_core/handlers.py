@@ -1,12 +1,12 @@
 """Unified tool handlers shared between local and remote modes."""
 
 import logging
-import os
 from datetime import datetime
 from typing import Any, Dict, Optional, cast
-from urllib.parse import urlencode
 
 import httpx
+
+from server.config import config
 
 from .base import TokenProvider, ToolResult
 from .exceptions import (
@@ -23,10 +23,10 @@ from .retry import with_retry
 logger = logging.getLogger("subconscious-ai")
 
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.subconscious.ai")
-REQUEST_TIMEOUT = 300
-MAX_RETRIES = 3
-RETRY_DELAY = 1.0
+API_BASE_URL = config.api_base_url
+REQUEST_TIMEOUT = config.request_timeout
+MAX_RETRIES = config.max_retries
+RETRY_DELAY = config.retry_delay
 
 
 # =============================================================================
@@ -249,15 +249,47 @@ async def validate_population(
     args: Dict[str, Any], token_provider: TokenProvider
 ) -> ToolResult:
     """Validate target population demographics."""
+    country = args.get("country", "United States of America (USA)")
+    if country not in ("United States", "United States of America (USA)", "USA"):
+        return ToolResult(
+            success=False,
+            error="validation_error",
+            message=(
+                "Only US population validation is supported by the connected backend. "
+                "Set country to 'United States'."
+            ),
+        )
+
+    target_population = args.get("target_population", {}) or {}
+    # Keep backward compatibility with existing MCP payload shape while matching
+    # rehoboam's /api/v1/populations/validate schema.
+    payload: Dict[str, Any] = {
+        "age": target_population.get("age", args.get("age")),
+        "number_of_children": target_population.get(
+            "number_of_children", args.get("number_of_children")
+        ),
+        "household_with_children": target_population.get(
+            "household_with_children", args.get("household_with_children")
+        ),
+        "education_level": target_population.get(
+            "education_level", args.get("education_level")
+        ),
+        "household_income": target_population.get(
+            "household_income", args.get("household_income")
+        ),
+        "state": target_population.get("state", args.get("state")),
+        "gender": target_population.get("gender", args.get("gender")),
+        "racial_group": target_population.get("racial_group", args.get("racial_group")),
+        "number_of_records": args.get("number_of_records", 250),
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
+
     try:
         response = await _api_request(
             "POST",
-            "/api/v1/population/validate",
+            "/api/v1/populations/validate",
             token_provider,
-            {
-                "country": args.get("country", "United States of America (USA)"),
-                "target_population": args.get("target_population", {}),
-            },
+            payload,
         )
         return ToolResult(
             success=True,
@@ -272,12 +304,24 @@ async def get_population_stats(
     args: Dict[str, Any], token_provider: TokenProvider
 ) -> ToolResult:
     """Get population statistics for a country."""
+    country = args.get("country", "United States of America (USA)")
+    if country not in ("United States", "United States of America (USA)", "USA"):
+        return ToolResult(
+            success=False,
+            error="validation_error",
+            message=(
+                "Only US population stats are supported by the connected backend. "
+                "Set country to 'United States'."
+            ),
+        )
+
     try:
-        country = args.get("country", "United States of America (USA)")
+        # Rehoboam does not expose /population/stats; use validate with defaults.
         response = await _api_request(
-            "GET",
-            f"/api/v1/population/stats?{urlencode({'country': country})}",
+            "POST",
+            "/api/v1/populations/validate",
             token_provider,
+            {"number_of_records": args.get("number_of_records", 250)},
         )
         return ToolResult(
             success=True,
@@ -482,12 +526,16 @@ async def update_run_config(
     args: Dict[str, Any], token_provider: TokenProvider
 ) -> ToolResult:
     """Update run configuration."""
+    config_payload = args.get("config", {}) or {}
+    if "toggle_privacy" in config_payload and "set_privacy" not in config_payload:
+        config_payload = {**config_payload, "set_privacy": config_payload["toggle_privacy"]}
+
     try:
         response = await _api_request(
-            "POST",
-            f"/api/v1/runs/{args['run_id']}/config",
+            "PUT",
+            f"/api/v1/runs/{args['run_id']}/update_config",
             token_provider,
-            args.get("config", {}),
+            {"config_update": config_payload},
         )
         return ToolResult(
             success=True,
@@ -510,17 +558,25 @@ async def generate_personas(
     try:
         count = args.get("count", 5)
         response = await _api_request(
-            "POST",
-            f"/api/v3/runs/{args['run_id']}/generate/personas",
+            "GET",
+            f"/api/v1/experiments/{args['run_id']}/personas",
             token_provider,
-            {"count": count},
         )
-        # Use actual count from response if available
-        actual_count = len(response) if isinstance(response, list) else count
+        if isinstance(response, dict):
+            personas = response.get("personas", [])
+            limited = personas[:count]
+            data: Any = {"personas": limited, "total": len(limited), "run_id": args["run_id"]}
+            total = len(limited)
+        elif isinstance(response, list):
+            data = response[:count]
+            total = len(data)
+        else:
+            data = response
+            total = count
         return ToolResult(
             success=True,
-            data=response,
-            message=f"Generated {actual_count} personas",
+            data=data,
+            message=f"Generated {total} personas",
         )
     except Exception as e:
         return _handle_error(e, "generate personas")
@@ -533,7 +589,7 @@ async def get_experiment_personas(
     try:
         response = await _api_request(
             "GET",
-            f"/api/v3/runs/{args['run_id']}/personas",
+            f"/api/v1/experiments/{args['run_id']}/personas",
             token_provider,
         )
         return ToolResult(

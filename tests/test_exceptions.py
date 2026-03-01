@@ -9,14 +9,14 @@ class TestExceptionHierarchy:
     def test_all_exceptions_inherit_from_base(self):
         """Test that all exceptions inherit from SubconsciousError."""
         from server.tools._core.exceptions import (
-            SubconsciousError,
             AuthenticationError,
             AuthorizationError,
+            NetworkError,
             NotFoundError,
-            ValidationError,
             RateLimitError,
             ServerError,
-            NetworkError,
+            SubconsciousError,
+            ValidationError,
         )
 
         assert issubclass(AuthenticationError, SubconsciousError)
@@ -45,9 +45,9 @@ class TestExceptionHierarchy:
     def test_base_exception_is_catchable(self):
         """Test that SubconsciousError can catch all child exceptions."""
         from server.tools._core.exceptions import (
-            SubconsciousError,
             AuthenticationError,
             NetworkError,
+            SubconsciousError,
         )
 
         exceptions_to_test = [
