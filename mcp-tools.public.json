@@ -1,0 +1,396 @@
+{
+  "authentication": {
+    "delivery": "environment",
+    "environment_variable": "AUTH0_JWT_TOKEN",
+    "type": "bearer"
+  },
+  "generated_at": "2026-07-26T22:57:38-04:00",
+  "manifest_version": 1,
+  "source": {
+    "repository": "Subconscious-ai/ghostshell",
+    "revision": "1654c170fcbbeee4c6f489c35f74fe8b6df5d624"
+  },
+  "tool_count": 15,
+  "tools": [
+    {
+      "description": "Check if a research question (why_prompt) is causal. A causal question asks about factors that influence an outcome. Example: 'What factors influence consumer preference for electric vehicles?' Returns whether the question is causal and suggestions for improvement if not.",
+      "inputSchema": {
+        "properties": {
+          "llm_model": {
+            "default": "sonnet",
+            "description": "LLM model to use for analysis",
+            "enum": [
+              "gpt4",
+              "sonnet",
+              "haiku"
+            ],
+            "type": "string"
+          },
+          "why_prompt": {
+            "description": "The research question to check for causality",
+            "type": "string"
+          }
+        },
+        "required": [
+          "why_prompt"
+        ],
+        "type": "object"
+      },
+      "name": "check_causality"
+    },
+    {
+      "description": "Create and run a new conjoint experiment. The experiment will be queued for execution and run asynchronously. Returns a run ID to track progress. IMPORTANT: Run check_causality and generate_attributes_levels first!",
+      "inputSchema": {
+        "properties": {
+          "attribute_count": {
+            "default": 5,
+            "description": "Number of attributes (2-10)",
+            "maximum": 10,
+            "minimum": 2,
+            "type": "integer"
+          },
+          "confidence_level": {
+            "default": "Low",
+            "description": "Confidence level for experiment sizing",
+            "enum": [
+              "Low",
+              "Reasonable",
+              "High"
+            ],
+            "type": "string"
+          },
+          "country": {
+            "default": "United States",
+            "description": "Target country",
+            "type": "string"
+          },
+          "expr_llm_model": {
+            "default": "sonnet",
+            "description": "LLM model for experiment",
+            "enum": [
+              "gpt4",
+              "sonnet",
+              "haiku"
+            ],
+            "type": "string"
+          },
+          "is_private": {
+            "default": false,
+            "description": "Make experiment private",
+            "type": "boolean"
+          },
+          "level_count": {
+            "default": 4,
+            "description": "Number of levels per attribute (2-10)",
+            "maximum": 10,
+            "minimum": 2,
+            "type": "integer"
+          },
+          "pre_cooked_attributes_and_levels_lookup": {
+            "description": "Pre-defined attributes and levels from generate_attributes_levels",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "state": {
+            "description": "Target US state (optional)",
+            "type": "string"
+          },
+          "why_prompt": {
+            "description": "The causal research question (e.g., 'What factors influence consumer preference for electric vehicles?')",
+            "type": "string"
+          }
+        },
+        "required": [
+          "why_prompt"
+        ],
+        "type": "object"
+      },
+      "name": "create_experiment"
+    },
+    {
+      "description": "Generate attributes and levels for a conjoint experiment based on the research question. Attributes are the factors being tested (e.g., price, brand, features). Levels are the specific values for each attribute (e.g., $10, $20, $30 for price). This is required before creating an experiment.",
+      "inputSchema": {
+        "properties": {
+          "attribute_count": {
+            "default": 5,
+            "description": "Number of attributes to generate (2-10)",
+            "maximum": 10,
+            "minimum": 2,
+            "type": "integer"
+          },
+          "country": {
+            "default": "United States",
+            "description": "Target country for the experiment",
+            "type": "string"
+          },
+          "level_count": {
+            "default": 4,
+            "description": "Number of levels per attribute (2-10)",
+            "maximum": 10,
+            "minimum": 2,
+            "type": "integer"
+          },
+          "llm_model": {
+            "default": "sonnet",
+            "description": "LLM model to use",
+            "enum": [
+              "gpt4",
+              "sonnet",
+              "haiku"
+            ],
+            "type": "string"
+          },
+          "why_prompt": {
+            "description": "The research question (must be causal)",
+            "type": "string"
+          },
+          "year": {
+            "default": "2024",
+            "description": "Year context for the experiment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "why_prompt"
+        ],
+        "type": "object"
+      },
+      "name": "generate_attributes_levels"
+    },
+    {
+      "description": "Generate synthetic personas based on experiment configuration. Returns persona definitions that can be used in experiments.",
+      "inputSchema": {
+        "properties": {
+          "count": {
+            "default": 5,
+            "description": "Number of personas to generate",
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "generate_personas"
+    },
+    {
+      "description": "Get Average Marginal Component Effect (AMCE) data from experiment results. AMCE shows the average effect of each attribute level on choice probability.",
+      "inputSchema": {
+        "properties": {
+          "format": {
+            "default": "json",
+            "description": "Output format",
+            "enum": [
+              "json",
+              "csv"
+            ],
+            "type": "string"
+          },
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_amce_data"
+    },
+    {
+      "description": "Get causal insights and feature importance from experiment results. Includes causal statements and feature importance rankings.",
+      "inputSchema": {
+        "properties": {
+          "include_visualizations": {
+            "default": false,
+            "description": "Whether to include visualization URLs",
+            "type": "boolean"
+          },
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_causal_insights"
+    },
+    {
+      "description": "Retrieve synthetic personas generated for a specific experiment. Returns persona descriptions and demographics.",
+      "inputSchema": {
+        "properties": {
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_experiment_personas"
+    },
+    {
+      "description": "Get comprehensive results from a completed experiment. Includes AMCE (Average Marginal Component Effects), insights, and visualizations.",
+      "inputSchema": {
+        "properties": {
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_experiment_results"
+    },
+    {
+      "description": "Get the current status of an experiment run. Returns status (running, completed, failed) and progress information.",
+      "inputSchema": {
+        "properties": {
+          "run_id": {
+            "description": "The experiment run ID (wandb_run_id)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_experiment_status"
+    },
+    {
+      "description": "Get statistical information about a population configuration. Includes demographic breakdowns and census data summaries.",
+      "inputSchema": {
+        "properties": {
+          "country": {
+            "default": "United States of America (USA)",
+            "description": "Target country",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "get_population_stats"
+    },
+    {
+      "description": "Get artifacts from a completed experiment run. Returns download URLs for CSV files, visualizations, and other artifacts.",
+      "inputSchema": {
+        "properties": {
+          "artifact_type": {
+            "default": "all",
+            "description": "Filter by artifact type",
+            "enum": [
+              "csv",
+              "image",
+              "json",
+              "all"
+            ],
+            "type": "string"
+          },
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_run_artifacts"
+    },
+    {
+      "description": "Get detailed information about a specific experiment run. Includes configuration, status, metrics, and metadata.",
+      "inputSchema": {
+        "properties": {
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_run_details"
+    },
+    {
+      "description": "List all experiments for the authenticated user. Returns experiment names, IDs, status, and creation dates.",
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 20,
+            "description": "Maximum number to return",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "name": "list_experiments"
+    },
+    {
+      "description": "Update configuration for an experiment run. Can update metadata, tags, and other configuration values.",
+      "inputSchema": {
+        "properties": {
+          "config": {
+            "description": "Configuration updates to apply",
+            "type": "object"
+          },
+          "run_id": {
+            "description": "The experiment run ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "name": "update_run_config"
+    },
+    {
+      "description": "Validate a population configuration before running an experiment. Checks census data availability and population parameters.",
+      "inputSchema": {
+        "properties": {
+          "country": {
+            "default": "United States of America (USA)",
+            "description": "Target country (e.g., 'United States')",
+            "type": "string"
+          },
+          "target_population": {
+            "description": "Target population demographics configuration",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "name": "validate_population"
+    }
+  ],
+  "tools_sha256": "8afb51da88f5a59090b7c39ec1f4bd49b54272bb1b6758a2c98e9b985ed0c51b",
+  "transport": {
+    "status": "supported",
+    "type": "stdio"
+  }
+}

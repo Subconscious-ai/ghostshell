@@ -96,6 +96,11 @@ smoke test, do not rely on it for production client configuration.
 | `get_amce_data` | Get AMCE analytics data |
 | `get_causal_insights` | Get AI-generated causal insights |
 
+The checked [`mcp-tools.public.json`](mcp-tools.public.json) file is the
+machine-readable discovery contract. It is generated directly from the same
+15-tool registry used by the hosted API and includes deterministic source,
+transport, authentication, and schema metadata without credential values.
+
 ## 🔬 Example Workflow
 
 ```
