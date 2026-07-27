@@ -108,21 +108,11 @@ class ToolSpec:
 
 
 def extract_token(request: Request) -> Optional[str]:
-    """Extract JWT token from Authorization header or query param.
-
-    Note: Query param tokens are deprecated. Prefer Authorization header.
-    """
+    """Extract a JWT token from the Authorization header."""
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         return auth_header[7:]
-
-    query_token = request.query_params.get("token")
-    if query_token:
-        logger.warning(
-            "Token passed via query param is deprecated. "
-            "Use Authorization header instead for better security."
-        )
-    return query_token
+    return None
 
 
 # =============================================================================
@@ -251,12 +241,7 @@ async def sse_endpoint(request: Request):
     token = extract_token(request)
     if not token:
         return JSONResponse(
-            {
-                "error": (
-                    "Token required. Send Authorization: Bearer YOUR_TOKEN "
-                    "or use ?token=YOUR_TOKEN"
-                )
-            },
+            {"error": "Authorization required. Send an Authorization: Bearer header."},
             status_code=401,
         )
 
@@ -341,18 +326,15 @@ async def server_info(request: Request) -> JSONResponse:
             "name": config.server_name,
             "version": config.server_version,
             "description": "MCP server for Subconscious AI conjoint experiments",
-            "mcp_endpoint": "/api/sse?token=YOUR_TOKEN",
-            "tools": list(TOOLS.keys()),
-            "setup": {
-                "cursor": "Add to ~/.cursor/mcp.json",
-                "config": {
-                    "mcpServers": {
-                        "subconscious-ai": {
-                            "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
-                        }
-                    }
-                },
+            "supported_transport": "stdio",
+            "hosted_transport": {
+                "type": "sse",
+                "endpoint": "/api/sse",
+                "authentication": "Authorization: Bearer header",
+                "status": "experimental",
             },
+            "tools": list(TOOLS.keys()),
+            "setup": "Use the supported local stdio configuration in README.md.",
         }
     )
 

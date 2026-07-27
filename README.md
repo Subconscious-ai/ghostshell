@@ -13,39 +13,11 @@ Run AI-powered conjoint experiments from Claude, Cursor, or any MCP-compatible c
 - **📊 Conjoint Analysis** - AMCE (Average Marginal Component Effects) for measuring attribute importance
 - **🤖 MCP Protocol** - Works with Claude Desktop, Cursor, and any MCP-compatible AI assistant
 - **🌐 REST API** - Direct HTTP access for integrations (n8n, Zapier, custom apps)
-- **⚡ Real-time Updates** - Server-Sent Events (SSE) for live experiment progress
+- **🔌 Local stdio transport** - Protocol-tested MCP connection for desktop clients
 
 ## 🚀 Quick Start
 
-### Option 1: Use Hosted Server (Recommended)
-
-No setup required! Add to your MCP client configuration:
-
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "subconscious-ai": {
-      "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
-    }
-  }
-}
-```
-
-**Cursor** (`~/.cursor/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "subconscious-ai": {
-      "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN"
-    }
-  }
-}
-```
-
-> 🔑 Get your token at [app.subconscious.ai](https://app.subconscious.ai) → Settings → Access Token
-
-### Option 2: Run Locally
+### Supported: Run locally over stdio
 
 **Prerequisites:**
 - Python 3.11+
@@ -83,6 +55,26 @@ Add to your MCP config:
   }
 }
 ```
+
+Use an absolute path for both the Python executable and `server/main.py`.
+Keep the configuration file private because it contains a bearer credential.
+The checked examples under `examples/` use the same supported stdio contract.
+
+You can verify the protocol connection without calling a paid tool:
+
+```bash
+python scripts/smoke_stdio_mcp.py
+```
+
+The smoke test performs a real MCP `initialize` and `tools/list` exchange and
+expects all 15 registered tools.
+
+### Experimental: Hosted SSE
+
+The hosted SSE endpoint is not a supported client setup yet. It accepts bearer
+credentials only through the `Authorization` header; URL query credentials are
+rejected. Because the hosted protocol/auth flow does not yet have a credentialed
+smoke test, do not rely on it for production client configuration.
 
 ## 📋 Available Tools
 
@@ -174,7 +166,7 @@ curl -X POST https://ghostshell-runi.vercel.app/api/call/get_experiment_results 
 | `/` | GET | No | Server info and available tools |
 | `/api/health` | GET | No | Health check |
 | `/api/tools` | GET | No | List all tools with schemas |
-| `/api/sse` | GET | Yes | MCP SSE connection (Authorization header preferred; query token fallback) |
+| `/api/sse` | GET | Yes | Experimental MCP SSE connection (Authorization header only) |
 | `/api/call/{tool}` | POST | Yes | Call a tool directly |
 
 ## 🏗️ Self-Hosting on Vercel
@@ -203,7 +195,7 @@ Have a feature request or need help? Email us at **nihar@subconscious.ai**
 ## 📚 Resources
 
 - [Subconscious AI Platform](https://app.subconscious.ai) - Create experiments via UI
-- [API Documentation](https://subconscious.docs.buildwithfern.com/wiki/get-started/welcome-to-subconscious-ai) — Full API reference
+- [API Documentation](https://docs.subconscious.ai) — Full API reference
 - [MCP Protocol](https://modelcontextprotocol.io) - Model Context Protocol specification
 - [Conjoint Analysis](https://en.wikipedia.org/wiki/Conjoint_analysis) - Learn about the methodology
 

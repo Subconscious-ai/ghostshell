@@ -1,7 +1,12 @@
 {
   "mcpServers": {
     "subconscious-ai": {
-      "url": "https://ghostshell-runi.vercel.app/api/sse?token=YOUR_TOKEN_HERE"
+      "command": "/absolute/path/to/venv/bin/python3",
+      "args": ["/absolute/path/to/ghostshell/server/main.py"],
+      "env": {
+        "AUTH0_JWT_TOKEN": "YOUR_TOKEN_HERE",
+        "API_BASE_URL": "https://api.subconscious.ai"
+      }
     }
   }
 }
