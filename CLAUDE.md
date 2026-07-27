@@ -62,7 +62,8 @@ Shared implementations used by both deployment modes:
 - Vercel serverless deployment using Starlette + SSE
 - MCP protocol: `GET /api/sse` (streaming), `POST /api/sse/message` (JSON-RPC)
 - REST API: `POST /api/call/{tool_name}`, `GET /api/tools`, `GET /api/health`
-- Auth: `Authorization: Bearer TOKEN` header (preferred) or `?token=TOKEN` (deprecated)
+- Auth: `Authorization: Bearer TOKEN` header only; query-string tokens are rejected
+- Status: experimental until the hosted protocol and auth flow has a credentialed smoke test
 - Uses `RequestTokenProvider` for per-request token handling
 
 ### Tool Organization (`server/tools/`)
@@ -124,6 +125,8 @@ Triggers on push/PR to `main` and `develop`. Three jobs on Ubuntu, Python 3.11:
 ## Scripts
 
 - `scripts/smoke_mcp.py` - Smoke test handlers against live backend (use `--deep --run-id` for full coverage)
+- `scripts/smoke_stdio_mcp.py` - Protocol-level `initialize` and `tools/list` proof for the supported local transport
+- `scripts/export_mcp_manifest.py` - Deterministic export of the registry-owned public tool contract
 - `scripts/run_e2e_download_artifacts.py` - Full E2E: create experiment, poll to completion, download artifacts to `artifacts/`
 
 ## Environment Variables
@@ -137,7 +140,7 @@ Triggers on push/PR to `main` and `develop`. Three jobs on Ubuntu, Python 3.11:
 
 ## Conventions
 
-See `AGENTS.md` for full contributor guidelines. Key points:
+Repository conventions:
 - `snake_case` for functions/variables/files, `PascalCase` for classes
 - `*_tool` suffix for tool factory functions, `handle_*` prefix for handlers
 - Tests: `tests/test_<area>.py`, class-based, add success + failure tests per handler
