@@ -111,6 +111,7 @@ def source_revision() -> tuple[str, str]:
         _git_output(
             "log",
             "-1",
+            "--no-merges",
             "--format=%H",
             "--",
             *(str(path) for path in SOURCE_PATHS),

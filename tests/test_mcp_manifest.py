@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.export_mcp_manifest as exporter
 from api.index import _list_tools_payload
 from scripts.export_mcp_manifest import (
     MANIFEST_PATH,
@@ -112,3 +113,21 @@ def test_public_setup_does_not_recommend_url_credentials_or_stale_docs():
     assert "?token=" not in public_text
     assert "docs.buildwithfern.com" not in public_text
     assert "experimental" in public_text.lower()
+
+
+def test_source_revision_ignores_synthetic_merge_commits(monkeypatch):
+    calls = []
+
+    def fake_git_output(*args, text=True):
+        calls.append(args)
+        if args[0] == "log":
+            return "c" * 40
+        return "2026-07-26T10:00:00-04:00"
+
+    monkeypatch.setattr(exporter, "_git_output", fake_git_output)
+
+    revision, generated_at = exporter.source_revision()
+
+    assert revision == "c" * 40
+    assert generated_at == "2026-07-26T10:00:00-04:00"
+    assert "--no-merges" in calls[0]
