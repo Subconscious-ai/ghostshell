@@ -1,10 +1,11 @@
 """Tests for the deterministic public MCP tool manifest."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
-import yaml
+import tomllib
 
 import scripts.export_mcp_manifest as exporter
 from api.index import _list_tools_payload
@@ -150,17 +151,28 @@ def test_source_revision_covers_every_tool_implementation_module():
 
 
 def test_full_history_ci_checkouts_do_not_persist_credentials():
-    workflow = yaml.safe_load(
-        (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
-    )
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
 
     for job_name in ("test", "validate-mcp"):
-        checkout = next(
-            step
-            for step in workflow["jobs"][job_name]["steps"]
-            if step.get("uses") == "actions/checkout@v4"
+        job = re.search(
+            rf"^  {job_name}:\n(?P<body>.*?)(?=^  [\w-]+:\n|\Z)",
+            workflow,
+            re.MULTILINE | re.DOTALL,
         )
-        assert checkout["with"] == {
-            "fetch-depth": 0,
-            "persist-credentials": False,
-        }
+        assert job is not None
+        checkout = re.search(
+            r"- uses: actions/checkout@v4\n(?P<with>.*?)(?=\n      - |\Z)",
+            job.group("body"),
+            re.DOTALL,
+        )
+        assert checkout is not None
+        assert "fetch-depth: 0" in checkout.group("with")
+        assert "persist-credentials: false" in checkout.group("with")
+
+
+def test_declared_mcp_dependency_stays_on_the_supported_major_version():
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    requirements = (REPO_ROOT / "requirements.txt").read_text().splitlines()
+
+    assert "mcp>=1.0.0,<2" in project["project"]["dependencies"]
+    assert "mcp>=1.0.0,<2" in requirements
