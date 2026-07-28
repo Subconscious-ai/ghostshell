@@ -2,6 +2,7 @@
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from starlette.requests import Request
 
 
 class TestAPIEndpoints:
@@ -36,6 +37,9 @@ class TestAPIEndpoints:
         assert data["name"] == "subconscious-ai"
         assert "tools" in data
         assert len(data["tools"]) == 15
+        assert data["supported_transport"] == "stdio"
+        assert data["hosted_transport"]["status"] == "experimental"
+        assert "?token=" not in response.text
 
     @pytest.mark.asyncio
     async def test_tools_list_endpoint(self, client):
@@ -77,7 +81,23 @@ class TestAPIEndpoints:
             response = await client.get("/api/sse")
         assert response.status_code == 401
         data = response.json()
-        assert "token" in data["error"].lower()
+        assert data["error"] == "Authorization required. Send an Authorization: Bearer header."
+        assert "?token=" not in data["error"]
+
+    def test_query_token_is_not_accepted(self):
+        from api.index import extract_token
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/api/sse",
+                "query_string": b"token=must-not-be-used",
+                "headers": [],
+            }
+        )
+
+        assert extract_token(request) is None
 
 
 class TestToolSchemas:

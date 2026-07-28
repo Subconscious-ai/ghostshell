@@ -23,7 +23,13 @@ jobs:
           pip install -e ".[dev]"
           
       - name: Lint with ruff
-        run: ruff check server/ tests/
+        run: >-
+          ruff check
+          server/
+          api/
+          scripts/export_mcp_manifest.py
+          scripts/smoke_stdio_mcp.py
+          tests/
         
       - name: Type check with mypy
         run: mypy server/ --ignore-missing-imports
@@ -32,6 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Manifest tests read back the exact registry-owning commit.
+          fetch-depth: 0
+          persist-credentials: false
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -53,6 +63,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Ignore GitHub's synthetic PR merge and retain source history.
+          fetch-depth: 0
+          persist-credentials: false
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -64,9 +78,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           
-      - name: Validate MCP server starts
+      - name: Export public MCP tool manifest
+        run: python scripts/export_mcp_manifest.py
+
+      - name: Verify committed manifest is current
         run: |
-          timeout 5 python server/main.py < /dev/null || true
+          git diff --exit-code mcp-tools.public.json || {
+            echo "::error::MCP manifest is stale. Run 'python scripts/export_mcp_manifest.py' and commit the result."
+            exit 1
+          }
+
+      - name: Validate MCP stdio protocol
+        run: python scripts/smoke_stdio_mcp.py
         env:
           AUTH0_JWT_TOKEN: "test_token"
           API_BASE_URL: "https://api.dev.subconscious.ai"
+
+      - name: Publish public MCP contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mcp-tools-${{ github.sha }}
+          path: mcp-tools.public.json

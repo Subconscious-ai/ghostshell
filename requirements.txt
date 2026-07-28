@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements.txt
 
 # Core MCP dependencies
-mcp>=1.0.0
+mcp>=1.0.0,<2
 
 # HTTP client (async)
 httpx>=0.25.0
