@@ -40,7 +40,8 @@ async def probe_stdio() -> dict[str, Any]:
 
 
 def main() -> None:
-    print(json.dumps(asyncio.run(probe_stdio()), indent=2, sort_keys=True))
+    result = asyncio.run(asyncio.wait_for(probe_stdio(), timeout=10))
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

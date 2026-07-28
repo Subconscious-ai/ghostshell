@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 import scripts.export_mcp_manifest as exporter
 from api.index import _list_tools_payload
@@ -134,3 +135,32 @@ def test_source_revision_ignores_synthetic_merge_commits(monkeypatch):
     assert revision == "c" * 40
     assert generated_at == "2026-07-26T10:00:00-04:00"
     assert "--no-merges" in calls[0]
+
+
+def test_source_revision_covers_every_tool_implementation_module():
+    expected_sources = {
+        Path("api/index.py"),
+        *(
+            path.relative_to(REPO_ROOT)
+            for path in (REPO_ROOT / "server" / "tools").rglob("*.py")
+        ),
+    }
+
+    assert set(exporter.SOURCE_PATHS) == expected_sources
+
+
+def test_full_history_ci_checkouts_do_not_persist_credentials():
+    workflow = yaml.safe_load(
+        (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    )
+
+    for job_name in ("test", "validate-mcp"):
+        checkout = next(
+            step
+            for step in workflow["jobs"][job_name]["steps"]
+            if step.get("uses") == "actions/checkout@v4"
+        )
+        assert checkout["with"] == {
+            "fetch-depth": 0,
+            "persist-credentials": False,
+        }

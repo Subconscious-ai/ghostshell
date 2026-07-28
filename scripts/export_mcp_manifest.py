@@ -19,7 +19,7 @@ SOURCE_PATHS = [
     Path("api/index.py"),
     *sorted(
         path.relative_to(REPO_ROOT)
-        for path in (REPO_ROOT / "server" / "tools").glob("*.py")
+        for path in (REPO_ROOT / "server" / "tools").rglob("*.py")
     ),
 ]
 
