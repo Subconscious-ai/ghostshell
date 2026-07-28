@@ -118,9 +118,17 @@ Retry logic (`@with_retry`) automatically retries on `RateLimitError`, `ServerEr
 
 Triggers on push/PR to `main` and `develop`. Three jobs on Ubuntu, Python 3.11:
 
-1. **lint** - `ruff check server/ tests/` + `mypy server/ --ignore-missing-imports`
-2. **test** - `pytest tests/ -v` (with `AUTH0_JWT_TOKEN=test_token`)
-3. **validate-mcp** - Verifies `server/main.py` starts without crashing
+1. **lint** - Ruff checks the server, hosted API, export/smoke scripts, and
+   tests; mypy checks the server.
+2. **test** - Runs all tests with full Git history because provenance tests
+   read the exact tool-owning commit.
+3. **validate-mcp** - Regenerates and rejects drift in
+   `mcp-tools.public.json`, performs a real MCP `initialize` plus `tools/list`
+   exchange, and uploads the exact public contract.
+
+A squash merge changes the owning commit ID. Regenerate the checked manifest on
+the merged lineage before treating `main` as green. The export may have
+identical tool bytes while the provenance revision still needs to change.
 
 ## Scripts
 

@@ -101,6 +101,11 @@ machine-readable discovery contract. It is generated directly from the same
 15-tool registry used by the hosted API and includes deterministic source,
 transport, authentication, and schema metadata without credential values.
 
+The manifest names the exact commit that owns every tool implementation. A
+squash merge creates a new owning commit even when the exported tools do not
+change, so regenerate and commit the manifest after the merge. A green
+pull-request artifact proves its named branch revision, not the default branch.
+
 ## 🔬 Example Workflow
 
 ```
