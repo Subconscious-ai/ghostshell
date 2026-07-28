@@ -1475,13 +1475,8 @@ input_schema: Dict[str, Any]
 ⋮----
 def extract_token(request: Request) -> Optional[str]
 ⋮----
-"""Extract JWT token from Authorization header or query param.
-
-    Note: Query param tokens are deprecated. Prefer Authorization header.
-    """
+"""Extract a JWT token from the Authorization header."""
 auth_header = request.headers.get("Authorization", "")
-⋮----
-query_token = request.query_params.get("token")
 ⋮----
 # Tool Registry
 ⋮----

@@ -107,10 +107,13 @@ def test_public_setup_does_not_recommend_url_credentials_or_stale_docs():
         REPO_ROOT / "examples/claude/config.json",
         REPO_ROOT / "examples/cursor/mcp.json",
         REPO_ROOT / "examples/local/config.json",
+        REPO_ROOT / "REPO-MAP.md",
     ]
     public_text = "\n".join(path.read_text() for path in public_files)
 
     assert "?token=" not in public_text
+    assert 'request.query_params.get("token")' not in public_text
+    assert "Authorization header or query param" not in public_text
     assert "docs.buildwithfern.com" not in public_text
     assert "experimental" in public_text.lower()
 
