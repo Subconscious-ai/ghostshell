@@ -4,11 +4,11 @@
     "environment_variable": "AUTH0_JWT_TOKEN",
     "type": "bearer"
   },
-  "generated_at": "2026-07-28T16:40:28-04:00",
+  "generated_at": "2026-08-31T23:21:36-04:00",
   "manifest_version": 1,
   "source": {
     "repository": "Subconscious-ai/ghostshell",
-    "revision": "c445240ebc06b172244c106f44ff3373d880c9eb"
+    "revision": "17cb7d9e2ee860d3fabe0f3740a1a6b2d41a925e"
   },
   "tool_count": 15,
   "tools": [

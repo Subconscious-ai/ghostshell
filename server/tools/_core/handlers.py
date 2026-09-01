@@ -1,5 +1,6 @@
 """Unified tool handlers shared between local and remote modes."""
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, cast
@@ -32,6 +33,34 @@ RETRY_DELAY = config.retry_delay
 # =============================================================================
 # API Request Helper
 # =============================================================================
+
+
+def _parse_response_payload(response: httpx.Response) -> Dict[str, Any]:
+    """Parse regular JSON or Rehoboam's progress-plus-result SSE envelope."""
+    content_type = response.headers.get("content-type", "").lower()
+    if "text/event-stream" not in content_type:
+        try:
+            return cast(Dict[str, Any], response.json())
+        except ValueError as exc:
+            raise ValidationError("Backend returned a non-JSON response") from exc
+
+    result: Any = None
+    for line in response.text.splitlines():
+        if not line.startswith("data:"):
+            continue
+        raw_event = line[len("data:") :].strip()
+        if not raw_event:
+            continue
+        try:
+            event = json.loads(raw_event)
+        except json.JSONDecodeError as exc:
+            raise ValidationError("Backend returned malformed SSE data") from exc
+        if isinstance(event, dict) and event.get("type") == "result":
+            result = event.get("data")
+
+    if not isinstance(result, dict):
+        raise ValidationError("Backend SSE response did not include a final result")
+    return cast(Dict[str, Any], result)
 
 
 @with_retry(max_retries=MAX_RETRIES, base_delay=RETRY_DELAY)
@@ -106,7 +135,7 @@ async def _api_request(
                 raise ValidationError(f"Request failed: {response.status_code}")
 
             response.raise_for_status()
-            return cast(Dict[str, Any], response.json())
+            return _parse_response_payload(response)
 
     except httpx.ConnectError as e:
         logger.error(f"Connection error: {e}")
