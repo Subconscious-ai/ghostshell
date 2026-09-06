@@ -1,0 +1,16 @@
+# CodeRabbit is disabled for this repository.
+#
+# Audit 2026-09-05 (Subconscious-ai/design-system#894): on the Free plan, 74 of
+# the last 100 CodeRabbit comments org-wide were "Review limit reached" and 0
+# carried an actionable review comment, while every PR still got a green
+# "CodeRabbit" status. A check that reports success for work it did not look
+# at is worse than no check. Sentry AI Code Review provides the line-level
+# bug review on PRs; the repository's own CI is the gate.
+#
+# The app stays installed org-wide; this file is what keeps it off this
+# repository's pull requests. Delete the file to turn it back on.
+reviews:
+  auto_review:
+    enabled: false
+  high_level_summary: false
+  review_status: false
