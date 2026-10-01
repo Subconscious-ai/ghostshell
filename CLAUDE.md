@@ -154,3 +154,7 @@ Repository conventions:
 - Tests: `tests/test_<area>.py`, class-based, add success + failure tests per handler
 - Never commit `AUTH0_JWT_TOKEN`; use `Authorization: Bearer` not query param tokens
 - Ruff config: `line-length = 100`, rules E/F/I/N/W
+
+## Agent skills
+
+See `docs/agents/` for the issue tracker (GitHub Issues), triage labels and domain-doc layout.
