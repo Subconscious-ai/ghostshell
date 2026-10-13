@@ -5,8 +5,9 @@ Use the repository's existing GitHub Roadmap/project conventions when present.
 Existing Linear references remain valid; link them from the GitHub issue rather
 than creating a second copy of the same task.
 
-Use `gh-axi` for supported issue and pull request operations; use `gh api` for
-GitHub operations the wrapper does not expose. Pass `--repo Subconscious-ai/ghostshell`
+Prefer `gh-axi` for supported issue and pull request operations when available;
+otherwise use `gh`. Use `gh api` for GitHub operations the wrapper does not expose.
+Pass `--repo Subconscious-ai/ghostshell`
 when the repository cannot be inferred from the current checkout.
 
 When a skill says "publish to the issue tracker", create or update the relevant
