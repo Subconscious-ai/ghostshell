@@ -154,3 +154,17 @@ Repository conventions:
 - Tests: `tests/test_<area>.py`, class-based, add success + failure tests per handler
 - Never commit `AUTH0_JWT_TOKEN`; use `Authorization: Bearer` not query param tokens
 - Ruff config: `line-length = 100`, rules E/F/I/N/W
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Standard five-role vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single root context, reusing existing domain documentation. See `docs/agents/domain.md`.
