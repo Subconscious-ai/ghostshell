@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+## Finding the code
+
+Start at the [MCP server](server/main.py). Follow the registered tool to its Subconscious API call and inspect the corresponding [test](tests/). For shared code, use [Graphify](https://github.com/Graphify-Labs/graphify) on this revision. Check direct callers with `graphify affected <symbol> --relation calls --depth 1` and verify them in source. On a managed checkout, open the shared Repository tools guide for service ownership and runtime evidence.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Overview
